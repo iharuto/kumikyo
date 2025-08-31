@@ -1,6 +1,6 @@
-# 🎵 Kumikyo - Melodic Pattern Recognition Trainer
+# 🎵 Kumikyo - 組响 - Melodic Pattern Recognition Trainer
 
-A sophisticated cognitive training application that helps users develop advanced auditory pattern recognition skills through classical Japanese literary symbols and melodic sequences.
+A sophisticated cognitive training application that helps users develop advanced auditory pattern recognition skills through classical Japanese literary symbols and melodic sequences. The overall game structure was inspired by Genjiko (源氏香) of Kumiko (組香)
 
 ## 🌟 Overview
 
