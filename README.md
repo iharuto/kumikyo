@@ -2,6 +2,11 @@
 
 A sophisticated cognitive training application that helps users develop advanced auditory pattern recognition skills through classical Japanese literary symbols and melodic sequences. The overall game structure was inspired by Genjiko (源氏香) of Kumiko (組香)
 
+## Demo
+![Demo](data/demo.gif)
+
+sorry for the gray color
+
 ## 🌟 Overview
 
 Kumikyo trains users to recognize complex melodic grouping patterns by combining:
@@ -173,7 +178,7 @@ We welcome contributions! Please see our contributing guidelines:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Email me, haruka.ij [at] gmail.com
 
 ## 🙏 Acknowledgments
 
@@ -181,12 +186,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Cognitive Science Research**: Pattern recognition and auditory learning principles
 - **Open Source Libraries**: PyQt6, NumPy, and the Python audio ecosystem
 - **Educational Philosophy**: Progressive difficulty and multimodal learning approaches
-
-## 📞 Support
-
-- **🐛 Bug Reports**: [Open an issue](https://github.com/your-username/kumikyo/issues)
-- **💡 Feature Requests**: [Discussion forum](https://github.com/your-username/kumikyo/discussions)
-- **📧 Contact**: [your-email@example.com](mailto:your-email@example.com)
 
 ---
 
