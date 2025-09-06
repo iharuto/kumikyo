@@ -3,7 +3,8 @@
 A sophisticated cognitive training application that helps users develop advanced auditory pattern recognition skills through classical Japanese literary symbols and melodic sequences. The overall game structure was inspired by Genjiko (源氏香) of Kumiko (組香)
 
 ## Demo
-<img src="data/demo.gif" alt="Demo" width="50%" align="left">
+
+<img src="data/demo.gif" alt="Demo" width="50%">
 
 sorry for the gray color
 
