@@ -1,199 +1,107 @@
-# 🎵 Kumikyo - 組响 - Melodic Pattern Recognition Trainer
+# 🎵 Kumikyo — 組响 — 音のパターン認識トレーナー
 
-A sophisticated cognitive training application that helps users develop advanced auditory pattern recognition skills through classical Japanese literary symbols and melodic sequences. The overall game structure was inspired by Genjiko (源氏香) of Kumiko (組香)
+源氏香（源氏香 / 組香）に着想を得た、聴覚パターン認識のトレーニングアプリです。
+5つのメロディを聞き、**同じ組（＝同じメロディ）の並び**を聞き分けて、対応する源氏香の図を当てます。
 
-## Demo
+> 🌐 **ブラウザで遊べます** — ビルド不要の静的サイトで、GitHub Pages で配信しています。
 
-<img src="data/demo.gif" alt="Demo" width="50%">
+## 🎮 遊び方
 
-sorry for the gray color
+1. **モード**（源氏香）と**難易度**を選ぶ
+2. 「セッション開始」→「▶ 5つのメロディを再生」で音を聞く
+3. 5つのメロディのうち、**同じ音**が鳴る位置の組み合わせを聞き取る
+4. その並びに対応する源氏香の図を **6択**から選んで「回答する」
+5. 答え合わせ画面で：
+   - **各位置(位置1〜5)／全体のメロディを聴き直し**（組ラベル付き）
+   - 生成された音を **WAV でダウンロード**
+6. 成績は端末内（`localStorage`）に保存され、「最近の成績を見る」で日別集計を確認できます
 
-## 🌟 Overview
+### 難易度
 
-Kumikyo trains users to recognize complex melodic grouping patterns by combining:
-- **Auditory Learning**: Sequential 5-melody playback with varying complexity
-- **Visual Recognition**: Classical Japanese Genji-ko symbols from *The Tale of Genji*
-- **Progressive Difficulty**: From simple 3-note melodies to complex 5-note sequences
-- **Cognitive Challenge**: Pattern matching between auditory and visual modalities
+| 難易度 | 1メロディの音数 | 内容 |
+|--------|----------------|------|
+| やさしい | 3音 | パターンの違いが大きめ |
+| ふつう | 4音 | やや似ている |
+| むずかしい | 5音 | 非常に似ている |
+| 激ムズ | 5音 | 極めて似ている・図ではなくテキスト表示 |
 
-## 🎯 Features
+各メロディは C-D-E-F-G の長音階に限定した純正弦波で、組の違いは **1音だけ隣接ステップに変化**します。ヘッドフォン推奨。
 
-### 🎵 Sequential Melody Training
-- **5-Position Sequences**: Each session plays 5 melodies based on grouping patterns (e.g., Pattern A → B → C → B → A)
-- **Dynamic Note Count**: Melody complexity increases with difficulty (3, 4, or 5 notes per melody)
-- **Single-Note Substitutions**: Extremely challenging discrimination with only ±1 scale step differences
-- **Precise Timing**: 0.5 seconds per note (1.5-2.5s melodies) with 1.5-second gaps
+## 🚀 デプロイ（GitHub Pages）
 
-### 🖼️ Visual Pattern Recognition
-- **52 Genji-ko Symbols**: Authentic patterns from classical Japanese literature
-- **2×3 Selection Grid**: Clean, intuitive interface for pattern identification
-- **High-Quality Images**: Scaled visual symbols from traditional Japanese aesthetics
-- **Responsive Design**: Hover effects and selection highlighting for better UX
+`main` へ push すると GitHub Actions が自動でビルド・デプロイします。
 
-### 📊 Four Difficulty Levels
+初回のみ、リポジトリの **Settings → Pages → Source: GitHub Actions** を選択してください。
+以降は push だけで公開URL（例: `https://<user>.github.io/<repo>/`）が更新されます。
 
-| Level | Notes/Melody | Timing | Visual Display | Challenge |
-|-------|--------------|--------|----------------|----------|
-| 🟢 **Easy** | 3 notes | 1.5s + 1.5s gap | Images | Single-note substitutions (±1 scale step) |
-| 🟡 **Normal** | 4 notes | 2.0s + 1.5s gap | Images | Adjacent-note differences only |
-| 🔴 **Hard** | 5 notes | 2.5s + 1.5s gap | Images | Extremely subtle single-step variations |
-| 🟣 **Very Hard** | 5 notes | 2.5s + 1.5s gap | Text Only | Maximum discrimination with text labels |
+## 🖥️ ローカルで動かす
 
-### 💾 Performance Tracking
-- **SQLite Database**: Comprehensive session and trial data storage
-- **Reaction Time**: Millisecond-precision response tracking  
-- **Success Rates**: 14-day performance statistics with detailed breakdowns
-- **Progress Analytics**: Track improvement over time across difficulty levels
+`file://` では `fetch` が動かないため、簡易サーバ経由で開きます。
 
-## 🚀 Installation
-
-### Prerequisites
-- Python 3.10+
-- Audio output device (speakers/headphones)
-
-### Setup
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/kumikyo.git
-cd kumikyo
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# macOS/Linux:
-source venv/bin/activate
-# Windows:
-venv\\Scripts\\activate
-
-# Install dependencies
-pip install -r requirements.txt
+# リポジトリ直下で
+python3 -m http.server 8000
+# → ブラウザで http://localhost:8000/
 ```
 
-### Dependencies
-- **PyQt6**: Modern GUI framework
-- **numpy**: High-performance audio synthesis
-- **simpleaudio**: Cross-platform audio playback
-- **csv**: Genji pattern data processing
+## 🏗️ 構成（素の HTML/JS・依存なし）
 
-## 🎮 Usage
+```
+index.html                   # 画面（設定 → プレイ → 答え合わせ の3画面）
+web/style.css                # スタイル
+web/app.js                   # 刺激生成ロジック + Web Audio 合成 + 成績保存
+data/genji_ko.csv            # 源氏香 52 パターン (rgs / slug / heights)
+fig_genjiko/                 # 各パターンの図 (52 枚 PNG)
+.github/workflows/pages.yml  # GitHub Pages 自動デプロイ
+.nojekyll                    # Jekyll 処理を無効化
+```
 
-### Quick Start
+### 仕組み
+
+- **刺激生成**: 源氏香パターンの各桁を「組」として解釈（例 `12121` → 組 `01010`）。同じ組の位置には同一メロディ、異なる組には1音違いのメロディを割り当てる
+- **音合成**: Web Audio API の `OscillatorNode`（正弦波）＋ゲイン包絡。WAV 出力は `OfflineAudioContext` でレンダリング
+- **再現性**: seed 付き PRNG（mulberry32）で、同じ seed からは同じ問題・同じ音を再生成
+- **成績**: `localStorage` に保存（サーバ不要）
+
+## 🗺️ ロードマップ
+
+- [x] **フェーズ1**: ブラウザ版の基盤（源氏香モード）＋答え合わせ音声の再生 ＋ GitHub Pages 配信
+- [ ] **フェーズ2**: `taketori` モード — 1つの reference 音に対し ○/× を答え続け、間違えたら終了（連続正解記録）
+- [ ] **フェーズ3**: 音声素材の拡張 — [klattsch](https://github.com/tgies/klattsch)（ブラウザで動く Klatt 音声合成、MIT）で話し方・スピード・抑揚を素材化
+
+## 🖥️ デスクトップ版 (v0) について
+
+初期版は PyQt6 の**デスクトップアプリ**（`script/kumikyo.py`、成績は SQLite）でした。
+現在は上記の Web 版を主軸に開発しており、v0 は `v0_260724` ブランチに保存されています。
+
+<details>
+<summary>v0 (PyQt6 デスクトップ版) の起動方法</summary>
+
 ```bash
-# Activate environment
-source venv/bin/activate  # Windows: venv\\Scripts\\activate
-
-# Run the application
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 python script/kumikyo.py
 ```
 
-### Training Workflow
-1. **🎚️ Select Difficulty**: Choose from Easy, Normal, Hard, or Very Hard
-2. **▶️ Start Session**: Click "Start New Training Session"
-3. **🎵 Listen**: Click "Play Melodic Sequence" to hear 5 melodies
-4. **👁️ Identify**: Click on the visual pattern that matches the sequence
-5. **✅ Submit**: Get immediate feedback with correct answer highlighting
-6. **📈 Track**: View progress with "Recent Stats" button
+依存: PyQt6 / numpy / simpleaudio / pillow。成績は `~/Library/Application Support/Kumikyo/data.db`（macOS）等に保存されます。
 
-### Training Tips
-- **🎧 Use headphones** for best audio clarity - essential for subtle differences
-- **🟢 Start with Easy** but expect significant challenge even at basic level
-- **👂 Focus on single-note differences** - melodies are extremely similar
-- **🔄 Listen multiple times** - discrimination requires intense concentration
-- **⚠️ Expect difficulty** - this is advanced auditory discrimination training
-- **📊 Track progress** to see gradual improvement in subtle pattern recognition
+</details>
 
-## 🏗️ Technical Architecture
+## 📄 License / Contact
 
-### Core Components
-- **🎼 Stimulus Generation**: Dynamic melody creation with edit distance constraints
-- **🎨 Audio Synthesis**: Pure sine wave generation using pentatonic scales
-- **🖼️ Visual System**: PNG image loading and display with fallback text
-- **💽 Data Persistence**: SQLite with WAL mode for reliable storage
-- **🔄 Pattern Matching**: Algorithmic grouping based on 5-digit Genji sequences
-
-### File Structure
-```
-kumikyo/
-├── script/
-│   └── kumikyo.py          # Main application
-├── data/
-│   └── genji_ko.csv        # 52 Genji pattern definitions
-├── fig_genjiko/            # Visual pattern images (52 PNG files)
-├── requirements.txt        # Python dependencies
-├── README.md              # This file
-└── venv/                  # Virtual environment
-```
-
-### Audio Design Philosophy
-- **🎵 Major Scale**: Constrained C-D-E-F-G scale for subtle discrimination training
-- **⏱️ Precise Timing**: 0.5 seconds per note, 1.5-second gaps for optimal processing
-- **🔊 Sine Waves**: Pure tones eliminate timbre distractions
-- **📐 Single-Step Substitutions**: Adjacent-note-only changes for maximum challenge
-
-## 💾 Data Storage
-
-Training data is automatically saved to:
-- **macOS**: `~/Library/Application Support/Kumikyo/data.db`
-- **Windows**: `%APPDATA%\\Kumikyo\\data.db`
-- **Linux**: `~/.local/share/Kumikyo/data.db`
-
-### Database Schema
-- **Sessions**: Metadata, difficulty, seed, stimulus JSON
-- **Trials**: Individual responses, reaction times, correctness
-- **Statistics**: Aggregated performance over time
-
-## 🧪 Testing
-
-Run the test suite to verify functionality:
-```bash
-# Activate environment
-source venv/bin/activate
-
-# Run tests
-python script/dev/test_audio.py      # Audio synthesis tests
-python script/dev/test_melody.py     # Melody generation tests  
-python script/dev/test_difficulty.py # Difficulty scaling tests
-python script/dev/test_complete.py   # End-to-end system tests
-```
-
-## 📚 Research Applications
-
-Kumikyo is designed for:
-- **🧠 Cognitive Research**: Fine-grained auditory discrimination studies
-- **🎓 Music Education**: Advanced interval recognition and pitch discrimination
-- **🧬 Neuroplasticity**: Challenging sequential memory and subtle pattern learning
-- **📊 Behavioral Analysis**: Precision reaction time and accuracy in difficult tasks
-- **🔬 Cross-modal Learning**: Audio-visual association under challenging conditions
-- **🎯 Perceptual Training**: Development of expert-level auditory discrimination skills
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our contributing guidelines:
-
-1. **🍴 Fork** the repository
-2. **🌿 Create feature branch** (`git checkout -b feature/amazing-feature`)
-3. **💾 Commit changes** (`git commit -m 'Add amazing feature'`)
-4. **📤 Push to branch** (`git push origin feature/amazing-feature`)
-5. **🔄 Open Pull Request**
-
-## 📄 License
-
-Email me, haruka.ij [at] gmail.com
+haruka.ij [at] gmail.com
 
 ## 🙏 Acknowledgments
 
-- **Classical Japanese Literature**: Genji-ko patterns from *The Tale of Genji*
-- **Cognitive Science Research**: Pattern recognition and auditory learning principles
-- **Open Source Libraries**: PyQt6, NumPy, and the Python audio ecosystem
-- **Educational Philosophy**: Progressive difficulty and multimodal learning approaches
+- 源氏香（源氏物語 各帖の香パターン）
+- [klattsch](https://github.com/tgies/klattsch) — Tony Gies (MIT)
+- Web Audio API
 
 ---
 
 <div align="center">
 
-**🎵 Train Your Ear, Expand Your Mind 🧠**
-
-*Kumikyo combines the beauty of Japanese classical literature with cutting-edge cognitive training*
+**🎵 耳を鍛えて、心を広げよう 🧠**
 
 </div>
