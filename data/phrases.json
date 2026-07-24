@@ -1,0 +1,186 @@
+{
+  "meta": {
+    "phonemeSet": "ARPABET",
+    "synth": "klattsch (Klatt formant synthesizer)",
+    "note": "ARPABET transcriptions are English-phoneme approximations intended for the klattsch synthesizer; they are not phonetically exact for non-English languages. For the prosody discrimination mode, the 'arpa' string is used as a fixed carrier while pitch / speed / intonation are varied.",
+    "languages": {
+      "ja": "Japanese",
+      "en": "English",
+      "zh": "Mandarin Chinese",
+      "ko": "Korean",
+      "es": "Spanish",
+      "fr": "French",
+      "de": "German",
+      "ru": "Russian"
+    }
+  },
+  "phrases": [
+    {
+      "id": "good_morning",
+      "meaning": "Good morning",
+      "gloss_ja": "おはよう",
+      "langs": {
+        "ja": { "text": "おはようございます", "arpa": "OW HH AA Y OW p120 G OW Z AA IY M AA S" },
+        "en": { "text": "Good morning", "arpa": "G UH D M AO R N IH NG" },
+        "zh": { "text": "早上好", "roman": "Zǎoshang hǎo", "arpa": "Z AW SH AA NG HH AW" },
+        "ko": { "text": "좋은 아침입니다", "arpa": "JH OW UH N AA CH IY M IY M N IY D AA" },
+        "es": { "text": "Buenos días", "arpa": "B W EH N OW S D IY AA S" },
+        "fr": { "text": "Bonjour", "arpa": "B OW N ZH UW R" },
+        "de": { "text": "Guten Morgen", "arpa": "G UW T AH N M AO R G AH N" },
+        "ru": { "text": "Доброе утро", "roman": "dóbroye útro", "arpa": "D OW B R AH Y EH UW T R AH" }
+      }
+    },
+    {
+      "id": "hello",
+      "meaning": "Hello",
+      "gloss_ja": "こんにちは",
+      "langs": {
+        "ja": { "text": "こんにちは", "arpa": "K AO N N IY CH IY W AA" },
+        "en": { "text": "Hello", "arpa": "HH AH L OW" },
+        "zh": { "text": "你好", "roman": "Nǐ hǎo", "arpa": "N IY HH AW" },
+        "ko": { "text": "안녕하세요", "arpa": "AA N N Y AH NG HH AA S EH Y OW" },
+        "es": { "text": "Hola", "arpa": "OW L AA" },
+        "fr": { "text": "Bonjour", "arpa": "B OW N ZH UW R" },
+        "de": { "text": "Hallo", "arpa": "HH AA L OW" },
+        "ru": { "text": "Здравствуйте", "roman": "zdrávstvuyte", "arpa": "Z D R AA F S T V UW Y T EH" }
+      }
+    },
+    {
+      "id": "good_evening",
+      "meaning": "Good evening",
+      "gloss_ja": "こんばんは",
+      "langs": {
+        "ja": { "text": "こんばんは", "arpa": "K AO N B AA N W AA" },
+        "en": { "text": "Good evening", "arpa": "G UH D IY V N IH NG" },
+        "zh": { "text": "晚上好", "roman": "Wǎnshang hǎo", "arpa": "W AA N SH AA NG HH AW" },
+        "ko": { "text": "좋은 저녁입니다", "arpa": "JH OW UH N JH AH N Y AH G IY M N IY D AA" },
+        "es": { "text": "Buenas noches", "arpa": "B W EH N AA S N OW CH EH S" },
+        "fr": { "text": "Bonsoir", "arpa": "B OW N S W AA R" },
+        "de": { "text": "Guten Abend", "arpa": "G UW T AH N AA B AH N T" },
+        "ru": { "text": "Добрый вечер", "roman": "dóbryy vécher", "arpa": "D OW B R IH Y V EH CH EH R" }
+      }
+    },
+    {
+      "id": "what_is_this",
+      "meaning": "What is this?",
+      "gloss_ja": "これはなんですか",
+      "langs": {
+        "ja": { "text": "これは何ですか？", "arpa": "K AO R EH W AA p100 N AA N D EH S K AA" },
+        "en": { "text": "What is this?", "arpa": "W AH T IH Z DH IH S" },
+        "zh": { "text": "这是什么？", "roman": "Zhè shì shénme?", "arpa": "JH UH SH ER SH EH N M AH" },
+        "ko": { "text": "이것은 무엇입니까?", "arpa": "IY G AH S UH N M UW AH SH IY M N IY K AA" },
+        "es": { "text": "¿Qué es esto?", "arpa": "K EH EH S EH S T OW" },
+        "fr": { "text": "Qu’est-ce que c’est ?", "arpa": "K EH S K AH S EH" },
+        "de": { "text": "Was ist das?", "arpa": "V AA S IH S T D AA S" },
+        "ru": { "text": "Что это?", "roman": "shtó éta?", "arpa": "SH T OW EH T AH" }
+      }
+    },
+    {
+      "id": "this_is_a_cat",
+      "meaning": "This is a cat",
+      "gloss_ja": "これは猫です",
+      "langs": {
+        "ja": { "text": "これは猫です", "arpa": "K AO R EH W AA p100 N AE K AO CH AA NG D EH S" },
+        "en": { "text": "This is a cat", "arpa": "DH IH S IH Z AH K AE T" },
+        "zh": { "text": "这是一只猫", "roman": "Zhè shì yì zhī māo", "arpa": "JH UH SH ER IY JH ER M AW" },
+        "ko": { "text": "이것은 고양이입니다", "arpa": "IY G AH S UH N G OW Y AA NG IY IY M N IY D AA" },
+        "es": { "text": "Esto es un gato", "arpa": "EH S T OW EH S UW N G AA T OW" },
+        "fr": { "text": "C’est un chat", "arpa": "S EH T AH N SH AA" },
+        "de": { "text": "Das ist eine Katze", "arpa": "D AA S IH S T AY N AH K AA T S AH" },
+        "ru": { "text": "Это кошка", "roman": "éta kóshka", "arpa": "EH T AH K OW SH K AH" }
+      }
+    },
+    {
+      "id": "i_am_an_ai",
+      "meaning": "I am an AI",
+      "gloss_ja": "私はAIです",
+      "langs": {
+        "ja": { "text": "私はAIです", "arpa": "r100 W AA T AA SH IY W AA r250 EY r200 AY r100 D EH S" },
+        "en": { "text": "I am an AI", "arpa": "AY AE M AH N EY AY" },
+        "zh": { "text": "我是人工智能", "roman": "Wǒ shì réngōng zhìnéng", "arpa": "W OW SH ER R EH N G OW NG JH ER N EH NG" },
+        "ko": { "text": "저는 인공지능입니다", "arpa": "JH AH N UH N IY N G OW NG JH IY N UH NG IY M N IY D AA" },
+        "es": { "text": "Soy una inteligencia artificial", "arpa": "S OY UW N AA IY N T EH L IY HH EH N S Y AA AA R T IY F IY S Y AA L" },
+        "fr": { "text": "Je suis une intelligence artificielle", "arpa": "ZH AH S W IY UW N EH N T EH L IY ZH AA N S AA R T IY F IY S Y EH L" },
+        "de": { "text": "Ich bin eine künstliche Intelligenz", "arpa": "IH SH B IH N AY N AH K UH N S T L IH CH AH IH N T EH L IY G EH N T S" },
+        "ru": { "text": "Я — искусственный интеллект", "roman": "ya — iskússtvennyy intellékt", "arpa": "Y AA IY S K UW S T V AH N IH Y IY N T EH L EH K T" }
+      }
+    }
+  ],
+  "dishes": [
+    {
+      "id": "like_sushi",
+      "lang": "ja",
+      "dish": "寿司",
+      "dish_en": "Sushi",
+      "text": "寿司が好きです",
+      "gloss_ja": "私は寿司が好きです",
+      "arpa": "S UW SH IY G AA S UW K IY D EH S"
+    },
+    {
+      "id": "like_fish_and_chips",
+      "lang": "en",
+      "dish": "Fish and chips",
+      "dish_en": "Fish and chips",
+      "text": "I like fish and chips",
+      "gloss_ja": "私はフィッシュ・アンド・チップスが好きです",
+      "arpa": "AY L AY K F IH SH AH N D CH IH P S"
+    },
+    {
+      "id": "like_jiaozi",
+      "lang": "zh",
+      "dish": "饺子",
+      "dish_roman": "Jiǎozi",
+      "dish_en": "Dumplings",
+      "text": "我喜欢饺子",
+      "gloss_ja": "私は餃子が好きです",
+      "arpa": "W OW SH IY HH W AA N JH Y AW Z IH"
+    },
+    {
+      "id": "like_bibimbap",
+      "lang": "ko",
+      "dish": "비빔밥",
+      "dish_roman": "Bibimbap",
+      "dish_en": "Bibimbap",
+      "text": "저는 비빔밥을 좋아합니다",
+      "gloss_ja": "私はビビンバが好きです",
+      "arpa": "JH AH N UH N B IY B IY M B AA B UH L JH OW AA HH AA M N IY D AA"
+    },
+    {
+      "id": "like_paella",
+      "lang": "es",
+      "dish": "Paella",
+      "dish_en": "Paella",
+      "text": "Me gusta la paella",
+      "gloss_ja": "私はパエリアが好きです",
+      "arpa": "M EH G UW S T AA L AA P AA EH Y AA"
+    },
+    {
+      "id": "like_ratatouille",
+      "lang": "fr",
+      "dish": "Ratatouille",
+      "dish_en": "Ratatouille",
+      "text": "J’aime la ratatouille",
+      "gloss_ja": "私はラタトゥイユが好きです",
+      "arpa": "ZH EH M L AA R AA T AA T UW Y"
+    },
+    {
+      "id": "like_currywurst",
+      "lang": "de",
+      "dish": "Currywurst",
+      "dish_en": "Currywurst",
+      "text": "Ich mag Currywurst",
+      "gloss_ja": "私はカリーヴルストが好きです",
+      "arpa": "IH CH M AA G K UH R IY V UH R S T"
+    },
+    {
+      "id": "like_borscht",
+      "lang": "ru",
+      "dish": "Борщ",
+      "dish_roman": "borshch",
+      "dish_en": "Borscht",
+      "text": "Я люблю борщ",
+      "gloss_ja": "私はボルシチが好きです",
+      "arpa": "Y AA L Y UW B L Y UW B AO R SH"
+    }
+  ]
+}

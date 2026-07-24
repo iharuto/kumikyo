@@ -1,11 +1,14 @@
 "use strict";
 
 /* ============================================================
- * Kumikyo 組响 — Web edition
- * Modes: genjiko (match the 5-group pattern), taketori (same/different survival)
+ * Kumikyo 組响 — Web edition (ES module)
+ * Sound sources: tones (abstract sine) and voice (klattsch, JA).
+ * Modes: genjiko (match the 5-group pattern), taketori (same/different survival).
  * Ported from the v0 desktop app (script/kumikyo.py) to Web Audio.
  * No build step; plain HTML/JS, deployable on GitHub Pages.
  * ========================================================== */
+
+import { playVoice, stopVoice, voiceWavBlob } from "./voice.js";
 
 // ---- Domain constants (same as v0) ----
 const NOTE_FREQS = {
@@ -52,6 +55,24 @@ async function loadGenjiPatterns() {
     if (!rgs) continue;
     GENJI_PATTERNS[rgs] = slug;
     PATTERN_NAMES.push(rgs);
+  }
+}
+
+// ---- Voice carriers (JA only, from data/phrases.json) ----
+let VOICE_CARRIERS = []; // [{ arpa, text, label }]
+const VOICE_BANK = "ja-hecko-2026";
+
+async function loadVoiceCarriers() {
+  try {
+    const d = await (await fetch("data/phrases.json")).json();
+    for (const p of d.phrases) {
+      if (p.langs && p.langs.ja) VOICE_CARRIERS.push({ arpa: p.langs.ja.arpa, text: p.langs.ja.text, label: p.meaning });
+    }
+    for (const x of d.dishes || []) {
+      if (x.lang === "ja") VOICE_CARRIERS.push({ arpa: x.arpa, text: x.text, label: x.dish_en });
+    }
+  } catch (e) {
+    console.error("Failed to load voice carriers:", e);
   }
 }
 
@@ -210,6 +231,7 @@ function stopAllAudio() {
     try { osc.disconnect(); } catch (e) {}
   }
   activeOscillators = [];
+  stopVoice(); // stop any klattsch voice playback too
   // Clear any "playing" highlights left on replay buttons
   document.querySelectorAll(".replay-positions button.playing").forEach((b) => b.classList.remove("playing"));
 }
@@ -341,6 +363,7 @@ function aggregateStats(days = 14) {
  * UI state & control
  * ========================================================== */
 const state = {
+  sound: "tones", // 'tones' | 'voice'
   mode: "genjiko",
   difficulty: "normal",
   stim: null,
@@ -358,35 +381,73 @@ function showScreen(id) {
   $("#" + id).classList.add("active");
 }
 
+const SOUND_HINTS = {
+  tones: "Abstract pure-sine melodies. Discriminate pitch patterns.",
+  voice: "Robotic Klatt speech (Japanese). Discriminate speaking style — pitch, speed, vibrato, intonation.",
+};
 const MODE_HINTS = {
   genjiko: "Hear 5 melodies; identify which positions share a melody and match the Genji-kō symbol.",
-  taketori: "Memorize the reference melody, then judge each following sound: same as the reference, or different. One mistake ends the run.",
+  taketori: "Memorize the reference, then judge each following sound: same as the reference, or different. One mistake ends the run.",
 };
+const PROSODY_HINTS = {
+  easy: "large prosody difference",
+  normal: "moderate prosody difference",
+  hard: "subtle prosody difference",
+  very_hard: "very subtle prosody difference",
+};
+function updateSoundHint() { $("#sound-hint").textContent = SOUND_HINTS[state.sound]; }
 function updateModeHint() { $("#mode-hint").textContent = MODE_HINTS[state.mode]; }
 function updateDifficultyHint() {
-  const cfg = DIFFICULTY_LEVELS[state.difficulty];
-  $("#difficulty-hint").textContent = `Each melody: ${cfg.n_positions} notes / ${cfg.hint}`;
+  if (state.sound === "voice") {
+    $("#difficulty-hint").textContent = `Prosody: ${PROSODY_HINTS[state.difficulty]}`;
+  } else {
+    const cfg = DIFFICULTY_LEVELS[state.difficulty];
+    $("#difficulty-hint").textContent = `Each melody: ${cfg.n_positions} notes / ${cfg.hint}`;
+  }
+}
+
+function selectChip(groupSel, value, attr) {
+  $$(groupSel + " .chip").forEach((b) => b.classList.toggle("active", b.dataset[attr] === value));
+}
+
+// Voice supports only taketori for now; disable genjiko and force taketori.
+function applySoundConstraints() {
+  const genjikoChip = document.querySelector('#mode-buttons .chip[data-mode="genjiko"]');
+  if (state.sound === "voice") {
+    genjikoChip.disabled = true;
+    if (state.mode !== "taketori") { state.mode = "taketori"; selectChip("#mode-buttons", "taketori", "mode"); }
+  } else {
+    genjikoChip.disabled = false;
+  }
 }
 
 // ---- Home ----
 function initHome() {
+  $$("#sound-buttons .chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      selectChip("#sound-buttons", btn.dataset.sound, "sound");
+      state.sound = btn.dataset.sound;
+      applySoundConstraints();
+      updateSoundHint(); updateModeHint(); updateDifficultyHint();
+    });
+  });
   $$("#mode-buttons .chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (btn.disabled) return;
-      $$("#mode-buttons .chip").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      selectChip("#mode-buttons", btn.dataset.mode, "mode");
       state.mode = btn.dataset.mode;
       updateModeHint();
     });
   });
   $$("#difficulty-buttons .chip").forEach((btn) => {
     btn.addEventListener("click", () => {
-      $$("#difficulty-buttons .chip").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
+      selectChip("#difficulty-buttons", btn.dataset.difficulty, "difficulty");
       state.difficulty = btn.dataset.difficulty;
       updateDifficultyHint();
     });
   });
+  updateSoundHint();
   updateModeHint();
   updateDifficultyHint();
 
@@ -394,10 +455,11 @@ function initHome() {
   $("#btn-show-stats").addEventListener("click", showStats);
 }
 
-// ---- Start (dispatch by mode) ----
+// ---- Start (dispatch by sound + mode) ----
 function startSession() {
   ac(); // wake AudioContext on user gesture
-  if (state.mode === "taketori") startTaketori();
+  if (state.sound === "voice") { startTaketori("voice"); return; }
+  if (state.mode === "taketori") startTaketori("tones");
   else startGenjiko();
 }
 
@@ -548,26 +610,71 @@ function initResult() {
   $("#btn-home").addEventListener("click", () => showScreen("screen-home"));
 }
 
-/* ---------- Taketori mode ----------
- * A reference melody plays once at the start. Then single sounds play one at a
+/* ---------- Taketori mode (tones or voice) ----------
+ * A reference sound plays once at the start. Then single sounds play one at a
  * time; for each, the player decides whether it is the SAME as the reference or
  * DIFFERENT. P(different) = 0.8. First mistake ends the run.
+ *
+ * kind 'tones': reference/test are sine melodies (1-note variation).
+ * kind 'voice': reference/test are klattsch utterances of a fixed JA carrier;
+ *   "different" applies a random prosody change (pitch / speed / mid vibrato /
+ *   mid pitch), magnitude scaled by difficulty, at a random (seeded) position.
  */
 const TAKETORI_P_DIFFERENT = 0.8;
 
-function startTaketori() {
-  const cfg = DIFFICULTY_LEVELS[state.difficulty];
-  const nNotes = cfg.n_positions;
-  const refSeed = randomSeed();
-  state.taketori = {
-    phase: "reference",
-    reference: genBaseMelody(refSeed, nNotes),
-    rootNote: choice(mulberry32(refSeed + 777), NOTE_LIST),
-    nNotes,
-    round: 0, streak: 0, best: loadBestStreak(),
-    test: null, isSame: null, answered: false,
-  };
-  $("#tk-best").textContent = state.taketori.best;
+// Prosody difference magnitudes per difficulty
+const PROSODY_BANDS = {
+  easy:      { pitch: 55, speed: 0.45, vibrato: 18, pitchMid: 65 },
+  normal:    { pitch: 35, speed: 0.30, vibrato: 12, pitchMid: 45 },
+  hard:      { pitch: 20, speed: 0.18, vibrato: 8,  pitchMid: 28 },
+  very_hard: { pitch: 12, speed: 0.10, vibrato: 5,  pitchMid: 16 },
+};
+const VOICE_BASE_OPTS = { bank: VOICE_BANK, pitch: 120, speedFactor: 1 };
+
+// Build a random prosody variant (the "different" case). Returns { opts, label }.
+function makeProsodyVariant(rng, difficulty) {
+  const band = PROSODY_BANDS[difficulty] || PROSODY_BANDS.normal;
+  const axis = choice(rng, ["globalPitch", "speed", "vibratoMid", "pitchMid"]);
+  const sign = rng() < 0.5 ? -1 : 1;
+  const pos = 0.2 + rng() * 0.6; // random insert position 0.2..0.8
+  switch (axis) {
+    case "globalPitch":
+      return { opts: { pitch: 120 + sign * band.pitch }, label: `overall pitch ${sign > 0 ? "higher" : "lower"}` };
+    case "speed": {
+      const factor = 1 + sign * band.speed;
+      return { opts: { speedFactor: factor }, label: `${factor > 1 ? "slower" : "faster"} speed` };
+    }
+    case "vibratoMid":
+      return { opts: { vibratoMid: { depth: band.vibrato, atFraction: pos } }, label: "mid-sentence vibrato" };
+    case "pitchMid":
+    default:
+      return { opts: { pitchMid: { hz: 120 + sign * band.pitchMid, atFraction: pos } }, label: `mid-sentence pitch ${sign > 0 ? "up" : "down"}` };
+  }
+}
+
+function startTaketori(kind) {
+  const t = { kind, phase: "reference", round: 0, streak: 0, best: loadBestStreak(), answered: false, isSame: null, variantLabel: null };
+  if (kind === "voice") {
+    if (!VOICE_CARRIERS.length) {
+      alert("Voice data failed to load.");
+      showScreen("screen-home");
+      return;
+    }
+    t.carrier = choice(mulberry32(randomSeed()), VOICE_CARRIERS);
+    t.baseOpts = { ...VOICE_BASE_OPTS };
+    t.refOpts = { ...VOICE_BASE_OPTS };
+    t.testOpts = null;
+  } else {
+    const nNotes = DIFFICULTY_LEVELS[state.difficulty].n_positions;
+    const refSeed = randomSeed();
+    t.nNotes = nNotes;
+    t.reference = genBaseMelody(refSeed, nNotes);
+    t.rootNote = choice(mulberry32(refSeed + 777), NOTE_LIST);
+    t.test = null;
+  }
+  state.taketori = t;
+
+  $("#tk-best").textContent = t.best;
   $("#tk-round").textContent = 0;
   $("#tk-streak").textContent = 0;
   $("#tk-feedback").style.display = "none";
@@ -576,7 +683,10 @@ function startTaketori() {
   const play = $("#btn-tk-play");
   play.disabled = false;
   play.textContent = "▶ Play reference";
-  $("#tk-status").textContent = "Listen to the reference melody and memorize it.";
+  $("#tk-status").textContent =
+    kind === "voice"
+      ? `Reference phrase: “${t.carrier.text}”. Listen and memorize how it is spoken.`
+      : "Listen to the reference melody and memorize it.";
   showScreen("screen-taketori");
 }
 
@@ -590,7 +700,19 @@ function newTaketoriRound() {
   const rng = mulberry32(seed);
   const isDifferent = rng() < TAKETORI_P_DIFFERENT;
   t.isSame = !isDifferent;
-  t.test = isDifferent ? genVariationMelody(t.reference, seed) : t.reference.slice();
+
+  if (t.kind === "voice") {
+    if (isDifferent) {
+      const variant = makeProsodyVariant(rng, state.difficulty);
+      t.testOpts = { ...t.baseOpts, ...variant.opts };
+      t.variantLabel = variant.label;
+    } else {
+      t.testOpts = { ...t.baseOpts };
+      t.variantLabel = null;
+    }
+  } else {
+    t.test = isDifferent ? genVariationMelody(t.reference, seed) : t.reference.slice();
+  }
 
   $("#tk-round").textContent = t.round;
   $("#tk-streak").textContent = t.streak;
@@ -603,16 +725,28 @@ function newTaketoriRound() {
   $("#tk-status").textContent = "Play the sound — same as the reference, or different?";
 }
 
+// Play the reference or the test item for the current taketori state.
+function taketoriPlay(which, onDone) {
+  const t = state.taketori;
+  if (t.kind === "voice") {
+    const opts = which === "reference" ? t.refOpts : t.testOpts;
+    playVoice(t.carrier.arpa, opts, onDone);
+  } else {
+    const mel = which === "reference" ? t.reference : t.test;
+    playSingleMelody(t.rootNote, mel, onDone);
+  }
+}
+
 function playTaketori() {
   const t = state.taketori;
   const btn = $("#btn-tk-play");
   btn.disabled = true;
   if (t.phase === "reference") {
     $("#tk-status").textContent = "♪ Reference…";
-    playSingleMelody(t.rootNote, t.reference, () => newTaketoriRound());
+    taketoriPlay("reference", () => newTaketoriRound());
   } else {
     $("#tk-status").textContent = "♪ …";
-    playSingleMelody(t.rootNote, t.test, () => {
+    taketoriPlay("test", () => {
       btn.disabled = false;
       $("#tk-status").textContent = "Same as the reference, or different?";
       if (!t.answered) {
@@ -632,7 +766,7 @@ function answerTaketori(userSaysSame) {
 
   const correct = userSaysSame === t.isSame;
   recordTrial({
-    ts: Date.now(), mode: "taketori", difficulty: state.difficulty,
+    ts: Date.now(), mode: t.kind === "voice" ? "voice_taketori" : "taketori", difficulty: state.difficulty,
     round: t.round, isSame: t.isSame, answer: userSaysSame ? "same" : "different", correct,
   });
 
@@ -656,26 +790,23 @@ function taketoriGameOver() {
   t.best = best;
   $("#go-streak").textContent = t.streak;
   $("#go-best").textContent = best;
-  $("#go-reveal").textContent = `That sound was ${t.isSame ? "the SAME as" : "DIFFERENT from"} the reference.`;
+  let reveal = `That sound was ${t.isSame ? "the SAME as" : "DIFFERENT from"} the reference.`;
+  if (t.kind === "voice" && !t.isSame && t.variantLabel) reveal += ` (${t.variantLabel})`;
+  $("#go-reveal").textContent = reveal;
   buildTaketoriReplay();
   showScreen("screen-gameover");
 }
 
 function buildTaketoriReplay() {
-  const t = state.taketori;
   const box = $("#go-replay");
   box.innerHTML = "";
-  const items = [
-    { label: "Reference", melody: t.reference },
-    { label: "That sound", melody: t.test },
-  ];
-  items.forEach(({ label, melody }) => {
+  [["Reference", "reference"], ["That sound", "test"]].forEach(([label, which]) => {
     const btn = document.createElement("button");
     btn.textContent = "▶ " + label;
     btn.addEventListener("click", () => {
       $$("#go-replay button").forEach((b) => b.classList.remove("playing"));
       btn.classList.add("playing");
-      playSingleMelody(t.rootNote, melody, () => btn.classList.remove("playing"));
+      taketoriPlay(which, () => btn.classList.remove("playing"));
     });
     box.appendChild(btn);
   });
@@ -686,7 +817,7 @@ function initTaketori() {
   $("#btn-tk-same").addEventListener("click", () => answerTaketori(true));
   $("#btn-tk-diff").addEventListener("click", () => answerTaketori(false));
   $("#btn-tk-quit").addEventListener("click", () => showScreen("screen-home"));
-  $("#btn-go-again").addEventListener("click", startTaketori);
+  $("#btn-go-again").addEventListener("click", () => startTaketori(state.taketori ? state.taketori.kind : "tones"));
   $("#btn-go-home").addEventListener("click", () => showScreen("screen-home"));
 }
 
@@ -730,6 +861,7 @@ async function main() {
     $("#pattern-count").textContent = "load failed";
     console.error("Failed to load Genji-kō patterns:", e);
   }
+  await loadVoiceCarriers();
   initHome();
   initPlay();
   initResult();

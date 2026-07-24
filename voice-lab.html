@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kumikyo — Voice Lab (klattsch)</title>
+  <link rel="stylesheet" href="web/style.css" />
+  <style>
+    .lab { max-width: 720px; margin: 0 auto; }
+    .row { margin: 1rem 0; }
+    .row label { display:block; color: var(--muted); font-weight:600; margin-bottom:.35rem; font-size:.9rem; }
+    select, input[type=range] { width: 100%; }
+    select { background: var(--panel); color: var(--text); border:1px solid var(--border); border-radius: 8px; padding:.5rem; }
+    .slider-val { color: var(--accent); font-weight:700; }
+    .carrier-text { color: var(--text); font-size:1.05rem; margin-top:.3rem; }
+    .src-box { background: var(--panel-2); border:1px solid var(--border); border-radius: var(--radius); padding:.7rem; font-family: ui-monospace, monospace; font-size:.85rem; word-break: break-all; color: var(--accent); margin-top:.5rem; }
+    .two { display:flex; gap:1rem; flex-wrap:wrap; }
+    .two > .row { flex:1; min-width: 200px; }
+    .subhint { color: var(--muted); font-size:.8rem; margin-top:.2rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🗣️ Voice Lab <span class="kanji">組响</span></h1>
+    <p class="tagline">Tune klattsch prosody (pitch / speed / vibrato / voice bank) — JA only</p>
+  </header>
+
+  <main class="lab">
+    <div class="row">
+      <label for="carrier">Carrier phrase (ARPABET)</label>
+      <select id="carrier"></select>
+      <div class="carrier-text" id="carrier-text"></div>
+    </div>
+
+    <div class="row">
+      <label for="bank">Voice bank (auto-set by language; override if you like)</label>
+      <select id="bank"></select>
+    </div>
+
+    <div class="two">
+      <div class="row">
+        <label>Pitch (base F0): <span class="slider-val" id="v-pitch">120</span> Hz</label>
+        <input type="range" id="pitch" min="70" max="260" step="1" value="120" />
+      </div>
+      <div class="row">
+        <label>Speed (time-stretch): <span class="slider-val" id="v-speed">1.00</span>×</label>
+        <input type="range" id="speed" min="0.5" max="2" step="0.05" value="1" />
+        <div class="subhint">&gt;1 = slower. Pauses scale together with speech.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Vibrato</label>
+      <select id="vibmode">
+        <option value="none" selected>none</option>
+        <option value="whole">whole sentence</option>
+        <option value="mid">mid-sentence (inserted partway)</option>
+      </select>
+    </div>
+    <div class="two">
+      <div class="row">
+        <label>Vibrato depth: <span class="slider-val" id="v-vd">10</span> Hz</label>
+        <input type="range" id="vd" min="0" max="25" step="1" value="10" />
+      </div>
+      <div class="row">
+        <label>Vibrato rate: <span class="slider-val" id="v-vr">5</span> Hz</label>
+        <input type="range" id="vr" min="1" max="10" step="0.5" value="5" />
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Pitch shift mid-sentence</label>
+      <select id="pmode">
+        <option value="none" selected>none</option>
+        <option value="mid">mid-sentence (insert b&lt;Hz&gt; partway)</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Mid-shift target pitch: <span class="slider-val" id="v-pmid">70</span> Hz</label>
+      <input type="range" id="pmid" min="50" max="260" step="1" value="70" />
+    </div>
+
+    <div class="row">
+      <label>Insert position (for mid vibrato / mid pitch): <span class="slider-val" id="v-pos">0.50</span></label>
+      <input type="range" id="pos" min="0.1" max="0.9" step="0.05" value="0.5" />
+      <div class="subhint">In the quiz this position will be randomized per round (seeded).</div>
+    </div>
+
+    <div class="src-box" id="src">…</div>
+
+    <div class="btn-row" style="margin-top:1rem">
+      <button id="play" class="primary big">▶ Play</button>
+      <button id="stop" class="ghost">Stop</button>
+      <button id="dl" class="ghost">Download WAV</button>
+    </div>
+
+    <p class="hint" style="margin-top:1.5rem">
+      Tuning tool for Phase 3. Presets you like here will drive the voice-prosody game mode.
+      <a href="index.html" style="color:var(--accent)">← Back to the game</a>
+    </p>
+  </main>
+
+  <script type="module">
+    import { playVoice, stopVoice, voiceWavBlob, buildUtterance, VOICE_BANKS } from "./web/voice.js";
+
+    const $ = (s) => document.querySelector(s);
+    const LANGS = new Set(["ja"]); // JA only for now
+    const bankForLang = (lang) => (lang === "ja" ? "ja-hecko-2026" : "klatt1980-en");
+    let carriers = [];
+
+    function currentOpts() {
+      const pos = +$("#pos").value;
+      const opts = {
+        bank: $("#bank").value || undefined,
+        pitch: +$("#pitch").value,
+        speedFactor: +$("#speed").value,
+        vibratoRate: +$("#vr").value,
+      };
+      const mode = $("#vibmode").value;
+      const depth = +$("#vd").value;
+      if (mode === "whole") opts.vibratoDepth = depth;
+      else if (mode === "mid") opts.vibratoMid = { depth, atFraction: pos };
+      if ($("#pmode").value === "mid") opts.pitchMid = { hz: +$("#pmid").value, atFraction: pos };
+      return opts;
+    }
+    const currentCarrier = () => carriers[$("#carrier").selectedIndex];
+    const currentArpa = () => (currentCarrier() ? currentCarrier().arpa : "HH AH L OW");
+
+    function refreshSrc() {
+      $("#src").textContent = buildUtterance(currentArpa(), currentOpts());
+      const c = currentCarrier();
+      $("#carrier-text").textContent = c ? `${c.label} — “${c.text}”` : "";
+    }
+
+    // voice banks
+    for (const b of VOICE_BANKS) {
+      const o = document.createElement("option");
+      o.value = b; o.textContent = b;
+      $("#bank").appendChild(o);
+    }
+
+    // live slider labels
+    for (const [id, out, fmt] of [
+      ["pitch", "v-pitch", (v) => v],
+      ["speed", "v-speed", (v) => Number(v).toFixed(2)],
+      ["vd", "v-vd", (v) => v],
+      ["vr", "v-vr", (v) => v],
+      ["pmid", "v-pmid", (v) => v],
+      ["pos", "v-pos", (v) => Number(v).toFixed(2)],
+    ]) {
+      $("#" + id).addEventListener("input", () => { $("#" + out).textContent = fmt($("#" + id).value); refreshSrc(); });
+    }
+    $("#bank").addEventListener("change", refreshSrc);
+    $("#vibmode").addEventListener("change", refreshSrc);
+    $("#pmode").addEventListener("change", refreshSrc);
+    $("#carrier").addEventListener("change", () => {
+      const c = currentCarrier();
+      if (c) $("#bank").value = bankForLang(c.lang); // auto voice bank by language
+      refreshSrc();
+    });
+
+    $("#play").addEventListener("click", () => playVoice(currentArpa(), currentOpts()));
+    $("#stop").addEventListener("click", stopVoice);
+    $("#dl").addEventListener("click", () => {
+      const blob = voiceWavBlob(currentArpa(), currentOpts());
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "voice.wav";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // load carriers (JA & EN only)
+    (async () => {
+      try {
+        const d = await (await fetch("data/phrases.json")).json();
+        for (const p of d.phrases) {
+          for (const [lang, v] of Object.entries(p.langs)) {
+            if (!LANGS.has(lang)) continue;
+            carriers.push({ lang, label: `greeting: ${p.meaning} [${lang}]`, text: v.text, arpa: v.arpa });
+          }
+        }
+        for (const x of d.dishes || []) {
+          if (!LANGS.has(x.lang)) continue;
+          carriers.push({ lang: x.lang, label: `dish: ${x.dish_en} [${x.lang}]`, text: x.text, arpa: x.arpa });
+        }
+      } catch (e) {
+        carriers.push({ lang: "ja", label: "fallback: Hello [ja]", text: "こんにちは", arpa: "K AO N N IY CH IY W AA" });
+      }
+      for (const c of carriers) {
+        const o = document.createElement("option");
+        o.textContent = c.label;
+        $("#carrier").appendChild(o);
+      }
+      const idx = carriers.findIndex((c) => c.label.includes("Hello [ja]"));
+      if (idx >= 0) $("#carrier").selectedIndex = idx;
+      const c0 = currentCarrier();
+      if (c0) $("#bank").value = bankForLang(c0.lang);
+      refreshSrc();
+    })();
+  </script>
+</body>
+</html>

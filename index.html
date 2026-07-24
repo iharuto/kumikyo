@@ -18,6 +18,15 @@
       <h2>Setup</h2>
 
       <div class="field">
+        <label>Sound</label>
+        <div class="btn-row" id="sound-buttons">
+          <button class="chip active" data-sound="tones">🎵 Tones (abstract)</button>
+          <button class="chip" data-sound="voice">🗣️ Voice (klattsch, JA)</button>
+        </div>
+      </div>
+      <p class="hint" id="sound-hint"></p>
+
+      <div class="field">
         <label>Mode</label>
         <div class="btn-row" id="mode-buttons">
           <button class="chip active" data-mode="genjiko">Genji-kō (match the 5-group pattern)</button>
@@ -29,10 +38,10 @@
       <div class="field">
         <label>Difficulty</label>
         <div class="btn-row" id="difficulty-buttons">
-          <button class="chip" data-difficulty="easy">Easy (3 notes)</button>
-          <button class="chip active" data-difficulty="normal">Normal (4 notes)</button>
-          <button class="chip" data-difficulty="hard">Hard (5 notes)</button>
-          <button class="chip" data-difficulty="very_hard">Very Hard (text)</button>
+          <button class="chip" data-difficulty="easy">Easy</button>
+          <button class="chip active" data-difficulty="normal">Normal</button>
+          <button class="chip" data-difficulty="hard">Hard</button>
+          <button class="chip" data-difficulty="very_hard">Very Hard</button>
         </div>
       </div>
 
@@ -155,6 +164,6 @@
     <p>Pure sine-wave auditory discrimination. Genji-kō patterns: <span id="pattern-count">…</span></p>
   </footer>
 
-  <script src="web/app.js"></script>
+  <script type="module" src="web/app.js"></script>
 </body>
 </html>
