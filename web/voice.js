@@ -149,3 +149,16 @@ export function voiceWavBlob(arpa, opts = {}) {
   const { bytes } = encodeWav(buf, SR, { metadata: { software: "Kumikyo", comment: source } });
   return new Blob([bytes], { type: "audio/wav" });
 }
+
+/** Render a list of utterances (same carrier, different prosody) into one WAV
+ *  Blob with silent gaps between them. Used by voice Genji-kō mode. */
+export function sequenceWavBlob(arpa, optsList, gapMs = 1500) {
+  const parts = optsList.map((o) => renderFloat(arpa, o).buf);
+  const gap = Math.round((SR * gapMs) / 1000);
+  const total = parts.reduce((s, b) => s + b.length, 0) + gap * Math.max(0, parts.length - 1);
+  const out = new Float32Array(total);
+  let off = 0;
+  parts.forEach((b, i) => { out.set(b, off); off += b.length + (i < parts.length - 1 ? gap : 0); });
+  const { bytes } = encodeWav(out, SR, { metadata: { software: "Kumikyo", comment: `genjiko-voice x${parts.length}` } });
+  return new Blob([bytes], { type: "audio/wav" });
+}

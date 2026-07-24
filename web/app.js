@@ -8,7 +8,7 @@
  * No build step; plain HTML/JS, deployable on GitHub Pages.
  * ========================================================== */
 
-import { playVoice, stopVoice, voiceWavBlob } from "./voice.js";
+import { playVoice, stopVoice, voiceWavBlob, sequenceWavBlob } from "./voice.js";
 
 // ---- Domain constants (same as v0) ----
 const NOTE_FREQS = {
@@ -410,17 +410,6 @@ function selectChip(groupSel, value, attr) {
   $$(groupSel + " .chip").forEach((b) => b.classList.toggle("active", b.dataset[attr] === value));
 }
 
-// Voice supports only taketori for now; disable genjiko and force taketori.
-function applySoundConstraints() {
-  const genjikoChip = document.querySelector('#mode-buttons .chip[data-mode="genjiko"]');
-  if (state.sound === "voice") {
-    genjikoChip.disabled = true;
-    if (state.mode !== "taketori") { state.mode = "taketori"; selectChip("#mode-buttons", "taketori", "mode"); }
-  } else {
-    genjikoChip.disabled = false;
-  }
-}
-
 // ---- Home ----
 function initHome() {
   $$("#sound-buttons .chip").forEach((btn) => {
@@ -428,7 +417,6 @@ function initHome() {
       if (btn.disabled) return;
       selectChip("#sound-buttons", btn.dataset.sound, "sound");
       state.sound = btn.dataset.sound;
-      applySoundConstraints();
       updateSoundHint(); updateModeHint(); updateDifficultyHint();
     });
   });
@@ -458,21 +446,87 @@ function initHome() {
 // ---- Start (dispatch by sound + mode) ----
 function startSession() {
   ac(); // wake AudioContext on user gesture
-  if (state.sound === "voice") { startTaketori("voice"); return; }
-  if (state.mode === "taketori") startTaketori("tones");
-  else startGenjiko();
+  if (state.mode === "taketori") { startTaketori(state.sound === "voice" ? "voice" : "tones"); return; }
+  startGenjiko(); // genjiko for both tones and voice (branches on state.sound inside)
 }
 
 /* ---------- Genji-kō mode ---------- */
+// Distinct prosody preset per group (group 0 = base, others = palette entries).
+// Difficulty controls how different the presets are.
+function groupProsodyPresets(rng, difficulty, n) {
+  const band = PROSODY_BANDS[difficulty] || PROSODY_BANDS.normal;
+  const palette = [
+    { pitch: 120 + band.pitch }, { pitch: 120 - band.pitch },
+    { speedFactor: 1 + band.speed }, { speedFactor: 1 - band.speed },
+    { vibratoMid: { depth: band.vibrato, atFraction: 0.5 } },
+    { pitchMid: { hz: 120 + band.pitchMid, atFraction: 0.5 } },
+    { pitchMid: { hz: 120 - band.pitchMid, atFraction: 0.5 } },
+  ];
+  const shuffled = shuffle(rng, palette);
+  const presets = [{ ...VOICE_BASE_OPTS }];
+  for (let i = 0; i < n - 1; i++) presets.push({ ...VOICE_BASE_OPTS, ...shuffled[i] });
+  return presets;
+}
+
+// Voice Genji-kō: reuse the pattern selection, but each group is a prosody preset
+// applied to one fixed JA carrier phrase (spoken 5 times).
+function buildVoiceStimulus(difficulty, seed) {
+  const stim = buildStimulus(difficulty, seed);
+  const rng = mulberry32((seed ^ 0x5bd1e995) >>> 0);
+  stim.isVoice = true;
+  stim.carrier = choice(rng, VOICE_CARRIERS);
+  const uniqueGroups = [...new Set(stim.positionGroups)];
+  const presets = groupProsodyPresets(rng, difficulty, uniqueGroups.length);
+  const groupToOpts = {};
+  uniqueGroups.forEach((g, i) => { groupToOpts[g] = presets[i]; });
+  stim.positionOpts = stim.positionGroups.map((g) => groupToOpts[g]);
+  return stim;
+}
+
+// Play a list of voice utterances (same carrier) back-to-back with gaps.
+function playVoiceList(arpa, optsList, gapMs, onDone) {
+  stopAllAudio();
+  let i = 0;
+  const step = () => {
+    if (i >= optsList.length) { if (onDone) onDone(); return; }
+    const opts = optsList[i++];
+    playVoice(arpa, opts, () => trackTimer(step, i < optsList.length ? gapMs : 0));
+  };
+  step();
+}
+
+// Genji-kō playback that branches on sound source.
+function playGenjikoSequence(onDone) {
+  const stim = state.stim;
+  if (stim.isVoice) playVoiceList(stim.carrier.arpa, stim.positionOpts, MELODY_GAP * 1000, onDone);
+  else playMelodySequence(stim.rootNote, stim.positionMelodies, onDone);
+}
+function playGenjikoPosition(i, onDone) {
+  const stim = state.stim;
+  if (stim.isVoice) playVoice(stim.carrier.arpa, stim.positionOpts[i], onDone);
+  else playSingleMelody(stim.rootNote, stim.positionMelodies[i], onDone);
+}
+
 function startGenjiko() {
-  state.stim = buildStimulus(state.difficulty, randomSeed());
+  state.stim =
+    state.sound === "voice"
+      ? buildVoiceStimulus(state.difficulty, randomSeed())
+      : buildStimulus(state.difficulty, randomSeed());
   state.selectedIndex = null;
   state.startTs = null;
 
   buildGrid();
   $("#btn-submit").disabled = true;
-  $("#btn-play-seq").disabled = false;
-  $("#play-status").textContent = "Press Play to hear the melodies.";
+  const play = $("#btn-play-seq");
+  play.disabled = false;
+  const isV = state.stim.isVoice;
+  play.textContent = isV ? "▶ Play the 5 utterances" : "▶ Play the 5 melodies";
+  $("#play-instruction").textContent = isV
+    ? "The same phrase is spoken 5 times. Find which positions share the same speaking style (same group), then pick the matching Genji-kō symbol."
+    : "Listen for which positions share the same melody (same group), then pick the matching Genji-kō symbol.";
+  $("#play-status").textContent = isV
+    ? `Phrase: “${state.stim.carrier.text}”. Press Play to hear it.`
+    : "Press Play to hear the melodies.";
   showScreen("screen-play");
 }
 
@@ -510,7 +564,7 @@ function initPlay() {
     const btn = $("#btn-play-seq");
     btn.disabled = true;
     $("#play-status").textContent = "♪ Playing… listen carefully.";
-    playMelodySequence(state.stim.rootNote, state.stim.positionMelodies, () => {
+    playGenjikoSequence(() => {
       btn.disabled = false;
       state.startTs = performance.now();
       $("#play-status").textContent = "Done. Pick the symbol that matches the grouping.";
@@ -527,7 +581,7 @@ function submitAnswer() {
   const rtMs = state.startTs ? Math.round(performance.now() - state.startTs) : 0;
 
   recordTrial({
-    ts: Date.now(), mode: "genjiko", difficulty: stim.difficulty, seed: stim.seed,
+    ts: Date.now(), mode: stim.isVoice ? "voice_genjiko" : "genjiko", difficulty: stim.difficulty, seed: stim.seed,
     target: stim.target, choice: stim.allPatterns[state.selectedIndex], correct, rt_ms: rtMs,
   });
 
@@ -570,14 +624,13 @@ function buildReplay() {
   const stim = state.stim;
   const box = $("#replay-positions");
   box.innerHTML = "";
-  stim.positionMelodies.forEach((melody, i) => {
+  stim.positionGroups.forEach((grp, i) => {
     const btn = document.createElement("button");
-    const grp = stim.positionGroups[i];
     btn.innerHTML = `Pos ${i + 1} <span class="grp">grp ${grp + 1}</span>`;
     btn.addEventListener("click", () => {
       $$("#replay-positions button").forEach((b) => b.classList.remove("playing"));
       btn.classList.add("playing");
-      playSingleMelody(stim.rootNote, melody, () => btn.classList.remove("playing"));
+      playGenjikoPosition(i, () => btn.classList.remove("playing"));
     });
     box.appendChild(btn);
   });
@@ -587,18 +640,21 @@ function initResult() {
   $("#btn-replay-all").addEventListener("click", () => {
     const btn = $("#btn-replay-all");
     btn.disabled = true;
-    playMelodySequence(state.stim.rootNote, state.stim.positionMelodies, () => (btn.disabled = false));
+    playGenjikoSequence(() => (btn.disabled = false));
   });
   $("#btn-download-wav").addEventListener("click", async () => {
     const btn = $("#btn-download-wav");
+    const stim = state.stim;
     btn.disabled = true;
     btn.textContent = "Rendering…";
     try {
-      const blob = await renderSequenceWav(state.stim.rootNote, state.stim.positionMelodies);
+      const blob = stim.isVoice
+        ? sequenceWavBlob(stim.carrier.arpa, stim.positionOpts, MELODY_GAP * 1000)
+        : await renderSequenceWav(stim.rootNote, stim.positionMelodies);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `kumikyo_${state.stim.target}_${state.stim.seed}.wav`;
+      a.download = `kumikyo_${stim.isVoice ? "voice_" : ""}${stim.target}_${stim.seed}.wav`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -624,10 +680,10 @@ const TAKETORI_P_DIFFERENT = 0.8;
 
 // Prosody difference magnitudes per difficulty
 const PROSODY_BANDS = {
-  easy:      { pitch: 55, speed: 0.45, vibrato: 18, pitchMid: 65 },
-  normal:    { pitch: 35, speed: 0.30, vibrato: 12, pitchMid: 45 },
-  hard:      { pitch: 20, speed: 0.18, vibrato: 8,  pitchMid: 28 },
-  very_hard: { pitch: 12, speed: 0.10, vibrato: 5,  pitchMid: 16 },
+  easy:      { pitch: 35, speed: 0.25, vibrato: 16, pitchMid: 45 },
+  normal:    { pitch: 22, speed: 0.16, vibrato: 12, pitchMid: 30 },
+  hard:      { pitch: 13, speed: 0.10, vibrato: 8,  pitchMid: 20 },
+  very_hard: { pitch: 8,  speed: 0.06, vibrato: 5,  pitchMid: 13 },
 };
 const VOICE_BASE_OPTS = { bank: VOICE_BANK, pitch: 120, speedFactor: 1 };
 
