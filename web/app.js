@@ -1,12 +1,13 @@
 "use strict";
 
 /* ============================================================
- * Kumikyo 組响 — Web版 (フェーズ1: genjiko モード)
- * v0 の script/kumikyo.py の刺激生成ロジックを Web Audio に移植。
- * ビルド不要の素の HTML/JS。GitHub Pages で配信可能。
+ * Kumikyo 組响 — Web edition
+ * Modes: genjiko (match the 5-group pattern), taketori (same/different survival)
+ * Ported from the v0 desktop app (script/kumikyo.py) to Web Audio.
+ * No build step; plain HTML/JS, deployable on GitHub Pages.
  * ========================================================== */
 
-// ---- ドメイン定数（v0 と同じ）----
+// ---- Domain constants (same as v0) ----
 const NOTE_FREQS = {
   C4: 261.626, "C#4": 277.183,
   D4: 293.665, "D#4": 311.127,
@@ -18,24 +19,24 @@ const NOTE_FREQS = {
 };
 const NOTE_LIST = Object.keys(NOTE_FREQS);
 
-// 拘束された長音階 (C-D-E-F-G) — 半音差の微妙な識別のため
+// Constrained major scale (C-D-E-F-G) for subtle discrimination
 const MAJOR_SCALE = [0, 2, 4, 5, 7];
 
 const DIFFICULTY_LEVELS = {
-  easy:      { n_positions: 3, max_edit_distance: 3, label: "やさしい", hint: "パターンの違いが大きめ" },
-  normal:    { n_positions: 4, max_edit_distance: 2, label: "ふつう",   hint: "パターンはやや似ている" },
-  hard:      { n_positions: 5, max_edit_distance: 1, label: "むずかしい", hint: "パターンは非常に似ている" },
-  very_hard: { n_positions: 5, max_edit_distance: 1, label: "激ムズ",   hint: "極めて似ている・図ではなくテキスト表示" },
+  easy:      { n_positions: 3, max_edit_distance: 3, label: "Easy",      hint: "patterns differ noticeably" },
+  normal:    { n_positions: 4, max_edit_distance: 2, label: "Normal",    hint: "patterns are somewhat similar" },
+  hard:      { n_positions: 5, max_edit_distance: 1, label: "Hard",      hint: "patterns are very similar" },
+  very_hard: { n_positions: 5, max_edit_distance: 1, label: "Very Hard", hint: "extremely similar; shown as text, not images" },
 };
 
-const NOTE_DURATION = 0.5;   // 1音あたり秒
-const NOTE_GAP = 0.05;       // メロディ内の音間ギャップ
-const MELODY_GAP = 1.5;      // 5メロディ間のギャップ
+const NOTE_DURATION = 0.5;   // seconds per note
+const NOTE_GAP = 0.05;       // gap between notes within a melody
+const MELODY_GAP = 1.5;      // gap between successive melodies
 const SAMPLE_RATE = 44100;
 
-// ---- 源氏香パターン (data/genji_ko.csv から読み込み) ----
+// ---- Genji-kō patterns (loaded from data/genji_ko.csv) ----
 let GENJI_PATTERNS = {};   // rgs -> slug
-let PATTERN_NAMES = [];    // rgs のリスト
+let PATTERN_NAMES = [];    // list of rgs
 
 async function loadGenjiPatterns() {
   const res = await fetch("data/genji_ko.csv");
@@ -54,7 +55,7 @@ async function loadGenjiPatterns() {
   }
 }
 
-// ---- seed 付き PRNG (mulberry32) ----
+// ---- Seeded PRNG (mulberry32) ----
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -64,7 +65,7 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const randInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1)); // 両端含む
+const randInt = (rng, lo, hi) => lo + Math.floor(rng() * (hi - lo + 1)); // inclusive
 const choice = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 function sample(rng, arr, k) {
   const pool = arr.slice();
@@ -82,8 +83,9 @@ function shuffle(rng, arr) {
   }
   return a;
 }
+const randomSeed = () => (Math.floor(Math.random() * 0x7fffffff)) >>> 0;
 
-// ---- メロディ生成 (v0 の generate_difficulty_melody 相当) ----
+// ---- Melody generation (v0's generate_difficulty_melody) ----
 function genBaseMelody(seed, nNotes) {
   const rng = mulberry32(seed);
   const melody = [];
@@ -91,7 +93,7 @@ function genBaseMelody(seed, nNotes) {
   return melody;
 }
 
-// 組 groupId 用のメロディ: 基準から1音だけ隣接ステップに変える
+// Variation for a group: change exactly one note to an adjacent scale step
 function genVariationMelody(baseMelody, seed) {
   const rng = mulberry32(seed);
   const melody = baseMelody.slice();
@@ -108,7 +110,7 @@ function genVariationMelody(baseMelody, seed) {
   return melody;
 }
 
-// パターン間の置換距離
+// Substitution distance between two patterns
 function patternDistance(p1, p2) {
   if (p1.length !== p2.length) return Math.max(p1.length, p2.length);
   let d = 0;
@@ -116,18 +118,18 @@ function patternDistance(p1, p2) {
   return d;
 }
 
-// ---- 刺激生成 (v0 の Stimulus 相当) ----
+// ---- Stimulus for genjiko mode (v0's Stimulus) ----
 function buildStimulus(difficulty, seed) {
   if (!DIFFICULTY_LEVELS[difficulty]) difficulty = "normal";
   const cfg = DIFFICULTY_LEVELS[difficulty];
   const nNotes = cfg.n_positions;
   const rng = mulberry32(seed);
 
-  // ターゲット選択
+  // Pick target
   const target = choice(rng, PATTERN_NAMES);
   const targetSlug = GENJI_PATTERNS[target];
 
-  // 難易度制約内の distractor 候補
+  // Distractor candidates within the difficulty's max edit distance
   let compatible = PATTERN_NAMES.filter(
     (p) => p !== target && patternDistance(target, p) <= cfg.max_edit_distance
   );
@@ -141,31 +143,28 @@ function buildStimulus(difficulty, seed) {
     if (!distractors.includes(r)) distractors.push(r);
   }
 
-  // 6択 (ターゲット + distractor 5) をシャッフル
+  // 6 choices (target + 5 distractors), shuffled
   const allPatterns = shuffle(rng, [target, ...distractors]);
   const correctPosition = allPatterns.indexOf(target);
 
   const rootNote = choice(rng, NOTE_LIST);
 
-  // ターゲットの各桁 -> 組ID (出現順に 0,1,2,...)
+  // Map each digit of the target to a group id in first-seen order
   const digits = target.split("");
   const digitToGroup = {};
   let g = 0;
   for (const d of digits) if (!(d in digitToGroup)) digitToGroup[d] = g++;
   const positionGroups = digits.map((d) => digitToGroup[d]);
 
-  // 各組のメロディを生成 (組0=基準, 他=1音違い)
+  // Generate one melody per group (group 0 = base, others = 1-note variation)
   const uniqueGroups = [...new Set(positionGroups)];
-  const groupMelodies = {};
-  for (const gid of uniqueGroups) {
-    if (gid === 0) groupMelodies[gid] = genBaseMelody(seed + 0, nNotes);
-  }
-  const base = groupMelodies[0] || genBaseMelody(seed + 0, nNotes);
+  const base = genBaseMelody(seed + 0, nNotes);
+  const groupMelodies = { 0: base };
   for (const gid of uniqueGroups) {
     if (gid !== 0) groupMelodies[gid] = genVariationMelody(base, seed + gid);
   }
 
-  // 位置ごとの実メロディ (半音配列)
+  // Per-position melodies (semitone arrays)
   const positionMelodies = positionGroups.map((gid) => groupMelodies[gid]);
 
   return {
@@ -176,25 +175,50 @@ function buildStimulus(difficulty, seed) {
   };
 }
 
-// ---- 画像パス ----
+// ---- Image paths ----
 const imagePath = (rgs) => `fig_genjiko/${rgs}_${GENJI_PATTERNS[rgs]}.png`;
 const slugTitle = (rgs) =>
   (GENJI_PATTERNS[rgs] || "unknown").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 /* ============================================================
  * Audio: Web Audio API
+ * All oscillators and timers are tracked so playback can be stopped
+ * immediately on screen changes (fixes "audio keeps playing after Quit").
  * ========================================================== */
 let audioCtx = null;
+let activeOscillators = [];
+let audioTimers = [];
+
 function ac() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") audioCtx.resume();
   return audioCtx;
 }
+function trackTimer(fn, ms) {
+  const id = setTimeout(() => {
+    audioTimers = audioTimers.filter((t) => t !== id);
+    fn();
+  }, ms);
+  audioTimers.push(id);
+  return id;
+}
+function stopAllAudio() {
+  audioTimers.forEach(clearTimeout);
+  audioTimers = [];
+  for (const osc of activeOscillators) {
+    try { osc.onended = null; osc.stop(); } catch (e) { /* already stopped */ }
+    try { osc.disconnect(); } catch (e) {}
+  }
+  activeOscillators = [];
+  // Clear any "playing" highlights left on replay buttons
+  document.querySelectorAll(".replay-positions button.playing").forEach((b) => b.classList.remove("playing"));
+}
+
 const semitoneFreq = (rootNote, semitone) =>
   (NOTE_FREQS[rootNote] || NOTE_FREQS.C4) * Math.pow(2, semitone / 12);
 
-// 1つのメロディ(半音配列)を live 再生。startTime は AudioContext 時刻。返り値=終了時刻
-function scheduleMelody(ctx, rootNote, melody, startTime) {
+// Schedule one melody (semitone array) starting at ctx time. Returns end time.
+function scheduleMelody(ctx, rootNote, melody, startTime, track) {
   let t = startTime;
   const fade = 0.02;
   for (const semi of melody) {
@@ -209,47 +233,48 @@ function scheduleMelody(ctx, rootNote, melody, startTime) {
     osc.connect(gain).connect(ctx.destination);
     osc.start(t);
     osc.stop(t + NOTE_DURATION);
+    if (track) activeOscillators.push(osc);
     t += NOTE_DURATION + NOTE_GAP;
   }
   return t - NOTE_GAP;
 }
 
-// メロディの実時間(秒)
 const melodyDuration = (melody) =>
   melody.length * NOTE_DURATION + Math.max(0, melody.length - 1) * NOTE_GAP;
 
-// 単一位置メロディの再生。onDone コールバック
-function playSingleMelody(stim, melody, onDone) {
+// Play a single melody live. onDone callback when finished.
+function playSingleMelody(rootNote, melody, onDone) {
+  stopAllAudio();
   const ctx = ac();
-  const end = scheduleMelody(ctx, stim.rootNote, melody, ctx.currentTime + 0.05);
-  if (onDone) setTimeout(onDone, (end - ctx.currentTime) * 1000 + 60);
+  const end = scheduleMelody(ctx, rootNote, melody, ctx.currentTime + 0.05, true);
+  if (onDone) trackTimer(onDone, (end - ctx.currentTime) * 1000 + 60);
 }
 
-// 5メロディを順に再生。onDone は最後に呼ばれる
-function playFullSequence(stim, onDone) {
+// Play several melodies back-to-back with MELODY_GAP between them.
+function playMelodySequence(rootNote, melodies, onDone) {
+  stopAllAudio();
   const ctx = ac();
   let t = ctx.currentTime + 0.1;
-  for (let i = 0; i < stim.positionMelodies.length; i++) {
-    const end = scheduleMelody(ctx, stim.rootNote, stim.positionMelodies[i], t);
+  for (let i = 0; i < melodies.length; i++) {
+    const end = scheduleMelody(ctx, rootNote, melodies[i], t, true);
     t = end + MELODY_GAP;
   }
   const total = t - MELODY_GAP - ctx.currentTime;
-  if (onDone) setTimeout(onDone, total * 1000 + 100);
+  if (onDone) trackTimer(onDone, total * 1000 + 100);
 }
 
-// ---- オフラインレンダリングして WAV 生成 ----
-async function renderSequenceWav(stim) {
-  // 全体長を計算
+// ---- Offline render to WAV ----
+async function renderSequenceWav(rootNote, melodies) {
   let totalDur = 0.1;
-  for (let i = 0; i < stim.positionMelodies.length; i++) {
-    totalDur += melodyDuration(stim.positionMelodies[i]);
-    if (i < stim.positionMelodies.length - 1) totalDur += MELODY_GAP;
+  for (let i = 0; i < melodies.length; i++) {
+    totalDur += melodyDuration(melodies[i]);
+    if (i < melodies.length - 1) totalDur += MELODY_GAP;
   }
   totalDur += 0.2;
   const octx = new OfflineAudioContext(1, Math.ceil(SAMPLE_RATE * totalDur), SAMPLE_RATE);
   let t = 0.1;
-  for (let i = 0; i < stim.positionMelodies.length; i++) {
-    const end = scheduleMelody(octx, stim.rootNote, stim.positionMelodies[i], t);
+  for (let i = 0; i < melodies.length; i++) {
+    const end = scheduleMelody(octx, rootNote, melodies[i], t, false);
     t = end + MELODY_GAP;
   }
   const buffer = await octx.startRendering();
@@ -276,9 +301,11 @@ function audioBufferToWav(buffer) {
 }
 
 /* ============================================================
- * 成績 (localStorage)
+ * Stats (localStorage)
  * ========================================================== */
 const STATS_KEY = "kumikyo_stats_v1";
+const BEST_STREAK_KEY = "kumikyo_best_streak_v1";
+
 function loadStats() {
   try { return JSON.parse(localStorage.getItem(STATS_KEY)) || []; }
   catch { return []; }
@@ -286,17 +313,19 @@ function loadStats() {
 function recordTrial(rec) {
   const stats = loadStats();
   stats.push(rec);
-  // 直近1000件のみ保持
-  if (stats.length > 1000) stats.splice(0, stats.length - 1000);
+  if (stats.length > 2000) stats.splice(0, stats.length - 2000);
   localStorage.setItem(STATS_KEY, JSON.stringify(stats));
 }
-function clearStats() { localStorage.removeItem(STATS_KEY); }
+function clearStats() {
+  localStorage.removeItem(STATS_KEY);
+  localStorage.removeItem(BEST_STREAK_KEY);
+}
+function loadBestStreak() { return parseInt(localStorage.getItem(BEST_STREAK_KEY) || "0", 10) || 0; }
+function saveBestStreak(n) { localStorage.setItem(BEST_STREAK_KEY, String(n)); }
 
-// 日付ごとに集計
 function aggregateStats(days = 14) {
   const stats = loadStats();
-  const now = Date.now();
-  const cutoff = now - days * 86400000;
+  const cutoff = Date.now() - days * 86400000;
   const byDay = {};
   for (const r of stats) {
     if (r.ts < cutoff) continue;
@@ -309,7 +338,7 @@ function aggregateStats(days = 14) {
 }
 
 /* ============================================================
- * UI 状態 & 制御
+ * UI state & control
  * ========================================================== */
 const state = {
   mode: "genjiko",
@@ -317,22 +346,29 @@ const state = {
   stim: null,
   selectedIndex: null,
   startTs: null,
+  taketori: null,
 };
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 function showScreen(id) {
+  stopAllAudio(); // stop any playback when leaving/entering a screen
   $$(".screen").forEach((s) => s.classList.remove("active"));
   $("#" + id).classList.add("active");
 }
 
+const MODE_HINTS = {
+  genjiko: "Hear 5 melodies; identify which positions share a melody and match the Genji-kō symbol.",
+  taketori: "Compare two melodies and answer Same or Different. Keep your streak alive — one mistake ends the run.",
+};
+function updateModeHint() { $("#mode-hint").textContent = MODE_HINTS[state.mode]; }
 function updateDifficultyHint() {
   const cfg = DIFFICULTY_LEVELS[state.difficulty];
-  $("#difficulty-hint").textContent = `各メロディ ${cfg.n_positions} 音 / ${cfg.hint}`;
+  $("#difficulty-hint").textContent = `Each melody: ${cfg.n_positions} notes / ${cfg.hint}`;
 }
 
-// ---- ホーム画面 ----
+// ---- Home ----
 function initHome() {
   $$("#mode-buttons .chip").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -340,6 +376,7 @@ function initHome() {
       $$("#mode-buttons .chip").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       state.mode = btn.dataset.mode;
+      updateModeHint();
     });
   });
   $$("#difficulty-buttons .chip").forEach((btn) => {
@@ -350,24 +387,31 @@ function initHome() {
       updateDifficultyHint();
     });
   });
+  updateModeHint();
   updateDifficultyHint();
 
   $("#btn-start").addEventListener("click", startSession);
   $("#btn-show-stats").addEventListener("click", showStats);
 }
 
-// ---- セッション開始 ----
+// ---- Start (dispatch by mode) ----
 function startSession() {
-  const seed = (Math.floor(Math.random() * 0x7fffffff)) >>> 0;
-  state.stim = buildStimulus(state.difficulty, seed);
+  ac(); // wake AudioContext on user gesture
+  if (state.mode === "taketori") startTaketori();
+  else startGenjiko();
+}
+
+/* ---------- Genji-kō mode ---------- */
+function startGenjiko() {
+  state.stim = buildStimulus(state.difficulty, randomSeed());
   state.selectedIndex = null;
   state.startTs = null;
 
   buildGrid();
   $("#btn-submit").disabled = true;
-  $("#play-status").textContent = "「再生」を押してメロディを聞いてください。";
+  $("#btn-play-seq").disabled = false;
+  $("#play-status").textContent = "Press Play to hear the melodies.";
   showScreen("screen-play");
-  ac(); // ユーザー操作でAudioContextを起こす
 }
 
 function buildGrid() {
@@ -392,7 +436,7 @@ function buildGrid() {
 }
 
 function selectCell(index, cell) {
-  if (state.startTs === null) return; // 再生前は選べない
+  if (state.startTs === null) return; // can't choose before playback finishes
   $$("#pattern-grid .cell").forEach((c) => c.classList.remove("selected"));
   cell.classList.add("selected");
   state.selectedIndex = index;
@@ -403,18 +447,17 @@ function initPlay() {
   $("#btn-play-seq").addEventListener("click", () => {
     const btn = $("#btn-play-seq");
     btn.disabled = true;
-    $("#play-status").textContent = "♪ 再生中… よく聞いてください。";
-    playFullSequence(state.stim, () => {
+    $("#play-status").textContent = "♪ Playing… listen carefully.";
+    playMelodySequence(state.stim.rootNote, state.stim.positionMelodies, () => {
       btn.disabled = false;
       state.startTs = performance.now();
-      $("#play-status").textContent = "再生完了。同じ組の並びを図から選んでください。";
+      $("#play-status").textContent = "Done. Pick the symbol that matches the grouping.";
     });
   });
   $("#btn-submit").addEventListener("click", submitAnswer);
   $("#btn-quit").addEventListener("click", () => showScreen("screen-home"));
 }
 
-// ---- 回答 ----
 function submitAnswer() {
   if (state.selectedIndex === null) return;
   const stim = state.stim;
@@ -422,25 +465,18 @@ function submitAnswer() {
   const rtMs = state.startTs ? Math.round(performance.now() - state.startTs) : 0;
 
   recordTrial({
-    ts: Date.now(),
-    mode: state.mode,
-    difficulty: stim.difficulty,
-    seed: stim.seed,
-    target: stim.target,
-    choice: stim.allPatterns[state.selectedIndex],
-    correct,
-    rt_ms: rtMs,
+    ts: Date.now(), mode: "genjiko", difficulty: stim.difficulty, seed: stim.seed,
+    target: stim.target, choice: stim.allPatterns[state.selectedIndex], correct, rt_ms: rtMs,
   });
 
   showResult(correct);
 }
 
-// ---- 答え合わせ画面 ----
 function showResult(correct) {
   const stim = state.stim;
   const banner = $("#result-banner");
   banner.className = "banner " + (correct ? "ok" : "ng");
-  banner.textContent = correct ? "✅ 正解！" : "❌ 不正解";
+  banner.textContent = correct ? "✅ Correct!" : "❌ Incorrect";
 
   $("#result-correct").innerHTML = answerCardHtml(stim.target);
   const yoursWrap = $("#result-yours-wrap");
@@ -451,7 +487,7 @@ function showResult(correct) {
     $("#result-yours").innerHTML = answerCardHtml(stim.allPatterns[state.selectedIndex]);
   }
 
-  // グリッドにも正誤を反映（プレイ画面のグリッドは残っている）
+  // Reflect correctness on the (still-present) grid cells
   const cells = $$("#pattern-grid .cell");
   cells[stim.correctPosition]?.classList.add("correct");
   if (!correct) cells[state.selectedIndex]?.classList.add("wrong");
@@ -475,11 +511,11 @@ function buildReplay() {
   stim.positionMelodies.forEach((melody, i) => {
     const btn = document.createElement("button");
     const grp = stim.positionGroups[i];
-    btn.innerHTML = `位置${i + 1} <span class="grp">組${grp + 1}</span>`;
+    btn.innerHTML = `Pos ${i + 1} <span class="grp">grp ${grp + 1}</span>`;
     btn.addEventListener("click", () => {
       $$("#replay-positions button").forEach((b) => b.classList.remove("playing"));
       btn.classList.add("playing");
-      playSingleMelody(stim, melody, () => btn.classList.remove("playing"));
+      playSingleMelody(stim.rootNote, melody, () => btn.classList.remove("playing"));
     });
     box.appendChild(btn);
   });
@@ -489,14 +525,14 @@ function initResult() {
   $("#btn-replay-all").addEventListener("click", () => {
     const btn = $("#btn-replay-all");
     btn.disabled = true;
-    playFullSequence(state.stim, () => (btn.disabled = false));
+    playMelodySequence(state.stim.rootNote, state.stim.positionMelodies, () => (btn.disabled = false));
   });
   $("#btn-download-wav").addEventListener("click", async () => {
     const btn = $("#btn-download-wav");
     btn.disabled = true;
-    btn.textContent = "生成中…";
+    btn.textContent = "Rendering…";
     try {
-      const blob = await renderSequenceWav(state.stim);
+      const blob = await renderSequenceWav(state.stim.rootNote, state.stim.positionMelodies);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -505,21 +541,137 @@ function initResult() {
       URL.revokeObjectURL(url);
     } finally {
       btn.disabled = false;
-      btn.textContent = "WAVをダウンロード";
+      btn.textContent = "Download WAV";
     }
   });
-  $("#btn-next").addEventListener("click", startSession);
+  $("#btn-next").addEventListener("click", startGenjiko);
   $("#btn-home").addEventListener("click", () => showScreen("screen-home"));
 }
 
-// ---- 成績ダイアログ ----
+/* ---------- Taketori mode ---------- */
+function startTaketori() {
+  state.taketori = { round: 0, streak: 0, best: loadBestStreak(), reference: null, test: null, isSame: null, rootNote: null, answered: false };
+  $("#tk-best").textContent = state.taketori.best;
+  showScreen("screen-taketori");
+  newTaketoriRound();
+}
+
+function newTaketoriRound() {
+  const t = state.taketori;
+  t.round += 1;
+  t.answered = false;
+
+  const cfg = DIFFICULTY_LEVELS[state.difficulty];
+  const nNotes = cfg.n_positions;
+  const seed = randomSeed();
+  const rng = mulberry32(seed);
+
+  t.reference = genBaseMelody(seed, nNotes);
+  t.isSame = rng() < 0.5;
+  t.rootNote = choice(rng, NOTE_LIST);
+  t.test = t.isSame ? t.reference.slice() : genVariationMelody(t.reference, seed + 1);
+
+  $("#tk-round").textContent = t.round;
+  $("#tk-streak").textContent = t.streak;
+  $("#tk-feedback").style.display = "none";
+  $("#btn-tk-same").disabled = true;
+  $("#btn-tk-diff").disabled = true;
+  $("#btn-tk-play").disabled = false;
+  $("#tk-status").textContent = "Press Play to hear the two melodies.";
+}
+
+function playTaketori() {
+  const t = state.taketori;
+  const btn = $("#btn-tk-play");
+  btn.disabled = true;
+  $("#tk-status").textContent = "♪ Reference, then comparison…";
+  playMelodySequence(t.rootNote, [t.reference, t.test], () => {
+    btn.disabled = false;
+    $("#tk-status").textContent = "Same or different?";
+    if (!t.answered) {
+      $("#btn-tk-same").disabled = false;
+      $("#btn-tk-diff").disabled = false;
+    }
+  });
+}
+
+function answerTaketori(userSaysSame) {
+  const t = state.taketori;
+  if (t.answered) return;
+  t.answered = true;
+  $("#btn-tk-same").disabled = true;
+  $("#btn-tk-diff").disabled = true;
+
+  const correct = userSaysSame === t.isSame;
+  recordTrial({
+    ts: Date.now(), mode: "taketori", difficulty: state.difficulty,
+    round: t.round, isSame: t.isSame, answer: userSaysSame ? "same" : "different", correct,
+  });
+
+  if (correct) {
+    t.streak += 1;
+    $("#tk-streak").textContent = t.streak;
+    const fb = $("#tk-feedback");
+    fb.className = "banner ok";
+    fb.textContent = "✅ Correct!";
+    fb.style.display = "";
+    trackTimer(newTaketoriRound, 900);
+  } else {
+    taketoriGameOver();
+  }
+}
+
+function taketoriGameOver() {
+  const t = state.taketori;
+  const best = Math.max(t.streak, loadBestStreak());
+  saveBestStreak(best);
+  t.best = best;
+  $("#go-streak").textContent = t.streak;
+  $("#go-best").textContent = best;
+  $("#go-reveal").textContent = `The two melodies were ${t.isSame ? "the SAME" : "DIFFERENT"}.`;
+  buildTaketoriReplay();
+  showScreen("screen-gameover");
+}
+
+function buildTaketoriReplay() {
+  const t = state.taketori;
+  const box = $("#go-replay");
+  box.innerHTML = "";
+  const items = [
+    { label: "Reference", melody: t.reference },
+    { label: "Comparison", melody: t.test },
+  ];
+  items.forEach(({ label, melody }) => {
+    const btn = document.createElement("button");
+    btn.textContent = "▶ " + label;
+    btn.addEventListener("click", () => {
+      $$("#go-replay button").forEach((b) => b.classList.remove("playing"));
+      btn.classList.add("playing");
+      playSingleMelody(t.rootNote, melody, () => btn.classList.remove("playing"));
+    });
+    box.appendChild(btn);
+  });
+}
+
+function initTaketori() {
+  $("#btn-tk-play").addEventListener("click", playTaketori);
+  $("#btn-tk-same").addEventListener("click", () => answerTaketori(true));
+  $("#btn-tk-diff").addEventListener("click", () => answerTaketori(false));
+  $("#btn-tk-quit").addEventListener("click", () => showScreen("screen-home"));
+  $("#btn-go-again").addEventListener("click", startTaketori);
+  $("#btn-go-home").addEventListener("click", () => showScreen("screen-home"));
+}
+
+// ---- Stats dialog ----
 function showStats() {
   const rows = aggregateStats(14);
   const body = $("#stats-body");
+  const best = loadBestStreak();
+  let html = `<p class="hint">Taketori best streak: <strong>${best}</strong></p>`;
   if (rows.length === 0) {
-    body.innerHTML = `<p class="hint">まだ記録がありません。セッションを始めましょう！</p>`;
+    html += `<p class="hint">No records yet. Start a session!</p>`;
   } else {
-    body.innerHTML = rows
+    html += rows
       .map(([d, s]) => {
         const pct = s.total ? Math.round((s.ok / s.total) * 100) : 0;
         return `<div class="stat-row"><span>${d}</span><span>${s.ok}/${s.total} (${pct}%)</span></div>
@@ -527,31 +679,33 @@ function showStats() {
       })
       .join("");
   }
+  body.innerHTML = html;
   $("#stats-dialog").showModal();
 }
 
 function initStatsDialog() {
   $("#btn-close-stats").addEventListener("click", () => $("#stats-dialog").close());
   $("#btn-clear-stats").addEventListener("click", () => {
-    if (confirm("成績履歴を消去しますか？")) {
+    if (confirm("Clear all stats history?")) {
       clearStats();
       $("#stats-dialog").close();
     }
   });
 }
 
-// ---- 起動 ----
+// ---- Boot ----
 async function main() {
   try {
     await loadGenjiPatterns();
     $("#pattern-count").textContent = PATTERN_NAMES.length;
   } catch (e) {
-    $("#pattern-count").textContent = "読み込み失敗";
-    console.error("源氏香パターンの読み込みに失敗:", e);
+    $("#pattern-count").textContent = "load failed";
+    console.error("Failed to load Genji-kō patterns:", e);
   }
   initHome();
   initPlay();
   initResult();
+  initTaketori();
   initStatsDialog();
 }
 

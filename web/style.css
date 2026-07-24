@@ -176,6 +176,24 @@ button.ghost.danger:hover { color: var(--danger); border-color: var(--danger); }
 .replay-positions button .grp { color: var(--accent); font-weight: 700; }
 .replay-positions button.playing { border-color: var(--accent); background: var(--panel-2); }
 
+.scoreboard {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.score-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .6rem 1.2rem;
+  text-align: center;
+  min-width: 90px;
+}
+.score-label { display: block; color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+.score-val { display: block; font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+
+.answer-btn { max-width: 200px; }
+
 dialog {
   background: var(--panel);
   color: var(--text);

@@ -1,110 +1,158 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kumikyo 組响 — 音のパターン認識トレーナー</title>
+  <title>Kumikyo 組响 — Auditory Pattern Trainer</title>
   <link rel="stylesheet" href="web/style.css" />
 </head>
 <body>
   <header>
     <h1>🎵 Kumikyo <span class="kanji">組响</span></h1>
-    <p class="tagline">源氏香に着想を得た、音のパターン認識トレーニング</p>
+    <p class="tagline">Auditory pattern-recognition training inspired by Genji-kō</p>
   </header>
 
   <main id="app">
-    <!-- ホーム画面 -->
+    <!-- Home -->
     <section id="screen-home" class="screen active">
-      <h2>設定</h2>
+      <h2>Setup</h2>
 
       <div class="field">
-        <label>モード</label>
+        <label>Mode</label>
         <div class="btn-row" id="mode-buttons">
-          <button class="chip active" data-mode="genjiko">源氏香 (5つの組を当てる)</button>
-          <button class="chip" data-mode="taketori" disabled title="フェーズ2で実装予定">竹取 (準備中)</button>
+          <button class="chip active" data-mode="genjiko">Genji-kō (match the 5-group pattern)</button>
+          <button class="chip" data-mode="taketori">Taketori (same / different, survival)</button>
         </div>
       </div>
+      <p class="hint" id="mode-hint"></p>
 
       <div class="field">
-        <label>難易度</label>
+        <label>Difficulty</label>
         <div class="btn-row" id="difficulty-buttons">
-          <button class="chip" data-difficulty="easy">やさしい (3音)</button>
-          <button class="chip active" data-difficulty="normal">ふつう (4音)</button>
-          <button class="chip" data-difficulty="hard">むずかしい (5音)</button>
-          <button class="chip" data-difficulty="very_hard">激ムズ (テキスト)</button>
+          <button class="chip" data-difficulty="easy">Easy (3 notes)</button>
+          <button class="chip active" data-difficulty="normal">Normal (4 notes)</button>
+          <button class="chip" data-difficulty="hard">Hard (5 notes)</button>
+          <button class="chip" data-difficulty="very_hard">Very Hard (text)</button>
         </div>
       </div>
 
       <p class="hint" id="difficulty-hint"></p>
 
-      <button id="btn-start" class="primary big">セッション開始</button>
+      <button id="btn-start" class="primary big">Start Session</button>
 
       <div class="field" style="margin-top:2rem">
-        <button id="btn-show-stats" class="ghost">最近の成績を見る</button>
+        <button id="btn-show-stats" class="ghost">View recent stats</button>
       </div>
     </section>
 
-    <!-- プレイ画面 -->
+    <!-- Play (Genji-kō) -->
     <section id="screen-play" class="screen">
       <div class="play-top">
-        <button id="btn-play-seq" class="primary big">▶ 5つのメロディを再生</button>
+        <button id="btn-play-seq" class="primary big">▶ Play the 5 melodies</button>
         <p class="hint" id="play-status"></p>
       </div>
 
-      <p class="hint">同じ組（同じメロディ）の並びを聞き取り、対応する源氏香の図を選んでください。</p>
+      <p class="hint">Listen for which positions share the same melody (same group), then pick the matching Genji-kō symbol.</p>
 
       <div id="pattern-grid" class="grid"></div>
 
       <div class="play-bottom">
-        <button id="btn-submit" class="primary big" disabled>回答する</button>
-        <button id="btn-quit" class="ghost">やめる</button>
+        <button id="btn-submit" class="primary big" disabled>Submit</button>
+        <button id="btn-quit" class="ghost">Quit</button>
       </div>
     </section>
 
-    <!-- 答え合わせ画面 -->
+    <!-- Result (Genji-kō) -->
     <section id="screen-result" class="screen">
       <div id="result-banner" class="banner"></div>
 
       <div class="result-cols">
         <div class="result-answer">
-          <h3>正解</h3>
+          <h3>Correct answer</h3>
           <div id="result-correct" class="answer-card"></div>
         </div>
         <div class="result-answer" id="result-yours-wrap">
-          <h3>あなたの回答</h3>
+          <h3>Your answer</h3>
           <div id="result-yours" class="answer-card"></div>
         </div>
       </div>
 
       <div class="replay-box">
-        <h3>🔁 生成された音を聴き直す</h3>
-        <p class="hint">位置1〜5のメロディ。同じ組は同じメロディです。</p>
+        <h3>🔁 Listen again</h3>
+        <p class="hint">Melodies for positions 1–5. Same group = same melody.</p>
         <div id="replay-positions" class="replay-positions"></div>
         <div class="btn-row" style="margin-top:.8rem">
-          <button id="btn-replay-all" class="primary">▶ 全体を再生</button>
-          <button id="btn-download-wav" class="ghost">WAVをダウンロード</button>
+          <button id="btn-replay-all" class="primary">▶ Play full sequence</button>
+          <button id="btn-download-wav" class="ghost">Download WAV</button>
         </div>
       </div>
 
       <div class="btn-row" style="justify-content:center;margin-top:1.5rem">
-        <button id="btn-next" class="primary big">次のセッション</button>
-        <button id="btn-home" class="ghost">設定に戻る</button>
+        <button id="btn-next" class="primary big">Next session</button>
+        <button id="btn-home" class="ghost">Back to setup</button>
+      </div>
+    </section>
+
+    <!-- Taketori -->
+    <section id="screen-taketori" class="screen">
+      <div class="scoreboard">
+        <div class="score-item"><span class="score-label">Round</span><span id="tk-round" class="score-val">1</span></div>
+        <div class="score-item"><span class="score-label">Streak</span><span id="tk-streak" class="score-val">0</span></div>
+        <div class="score-item"><span class="score-label">Best</span><span id="tk-best" class="score-val">0</span></div>
+      </div>
+
+      <div class="play-top">
+        <button id="btn-tk-play" class="primary big">▶ Play the two melodies</button>
+        <p class="hint" id="tk-status"></p>
+      </div>
+
+      <p class="hint" style="text-align:center">You hear a reference melody, then a second one. Are they the same or different?</p>
+
+      <div class="btn-row" style="justify-content:center;gap:1rem;margin:1.5rem 0">
+        <button id="btn-tk-same" class="primary big answer-btn" disabled>Same</button>
+        <button id="btn-tk-diff" class="primary big answer-btn" disabled>Different</button>
+      </div>
+
+      <div id="tk-feedback" class="banner" style="display:none"></div>
+
+      <div class="btn-row" style="justify-content:center;margin-top:1rem">
+        <button id="btn-tk-quit" class="ghost">Quit</button>
+      </div>
+    </section>
+
+    <!-- Game Over (Taketori) -->
+    <section id="screen-gameover" class="screen">
+      <div class="banner ng">Game Over</div>
+      <div class="scoreboard" style="margin-top:1rem">
+        <div class="score-item"><span class="score-label">Streak</span><span id="go-streak" class="score-val">0</span></div>
+        <div class="score-item"><span class="score-label">Best</span><span id="go-best" class="score-val">0</span></div>
+      </div>
+      <p class="hint" id="go-reveal" style="text-align:center;margin-top:1rem"></p>
+
+      <div class="replay-box">
+        <h3>🔁 Listen again</h3>
+        <div id="go-replay" class="replay-positions"></div>
+      </div>
+
+      <div class="btn-row" style="justify-content:center;margin-top:1.5rem">
+        <button id="btn-go-again" class="primary big">Play again</button>
+        <button id="btn-go-home" class="ghost">Back to setup</button>
       </div>
     </section>
   </main>
 
-  <!-- 成績ダイアログ -->
+  <!-- Stats dialog -->
   <dialog id="stats-dialog">
-    <h3>最近の成績</h3>
+    <h3>Recent stats</h3>
     <div id="stats-body"></div>
     <div class="btn-row" style="justify-content:flex-end;margin-top:1rem">
-      <button id="btn-clear-stats" class="ghost danger">履歴を消去</button>
-      <button id="btn-close-stats" class="primary">閉じる</button>
+      <button id="btn-clear-stats" class="ghost danger">Clear history</button>
+      <button id="btn-close-stats" class="primary">Close</button>
     </div>
   </dialog>
 
   <footer>
-    <p>純正弦波による聴覚パターン識別。源氏香パターン: <span id="pattern-count">…</span> 種</p>
+    <p>Pure sine-wave auditory discrimination. Genji-kō patterns: <span id="pattern-count">…</span></p>
   </footer>
 
   <script src="web/app.js"></script>
