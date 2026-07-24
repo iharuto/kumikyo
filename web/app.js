@@ -360,7 +360,7 @@ function showScreen(id) {
 
 const MODE_HINTS = {
   genjiko: "Hear 5 melodies; identify which positions share a melody and match the Genji-kō symbol.",
-  taketori: "Compare two melodies and answer Same or Different. Keep your streak alive — one mistake ends the run.",
+  taketori: "Memorize the reference melody, then judge each following sound: same as the reference, or different. One mistake ends the run.",
 };
 function updateModeHint() { $("#mode-hint").textContent = MODE_HINTS[state.mode]; }
 function updateDifficultyHint() {
@@ -548,51 +548,79 @@ function initResult() {
   $("#btn-home").addEventListener("click", () => showScreen("screen-home"));
 }
 
-/* ---------- Taketori mode ---------- */
+/* ---------- Taketori mode ----------
+ * A reference melody plays once at the start. Then single sounds play one at a
+ * time; for each, the player decides whether it is the SAME as the reference or
+ * DIFFERENT. P(different) = 0.8. First mistake ends the run.
+ */
+const TAKETORI_P_DIFFERENT = 0.8;
+
 function startTaketori() {
-  state.taketori = { round: 0, streak: 0, best: loadBestStreak(), reference: null, test: null, isSame: null, rootNote: null, answered: false };
+  const cfg = DIFFICULTY_LEVELS[state.difficulty];
+  const nNotes = cfg.n_positions;
+  const refSeed = randomSeed();
+  state.taketori = {
+    phase: "reference",
+    reference: genBaseMelody(refSeed, nNotes),
+    rootNote: choice(mulberry32(refSeed + 777), NOTE_LIST),
+    nNotes,
+    round: 0, streak: 0, best: loadBestStreak(),
+    test: null, isSame: null, answered: false,
+  };
   $("#tk-best").textContent = state.taketori.best;
+  $("#tk-round").textContent = 0;
+  $("#tk-streak").textContent = 0;
+  $("#tk-feedback").style.display = "none";
+  $("#btn-tk-same").disabled = true;
+  $("#btn-tk-diff").disabled = true;
+  const play = $("#btn-tk-play");
+  play.disabled = false;
+  play.textContent = "▶ Play reference";
+  $("#tk-status").textContent = "Listen to the reference melody and memorize it.";
   showScreen("screen-taketori");
-  newTaketoriRound();
 }
 
 function newTaketoriRound() {
   const t = state.taketori;
+  t.phase = "round";
   t.round += 1;
   t.answered = false;
 
-  const cfg = DIFFICULTY_LEVELS[state.difficulty];
-  const nNotes = cfg.n_positions;
   const seed = randomSeed();
   const rng = mulberry32(seed);
-
-  t.reference = genBaseMelody(seed, nNotes);
-  t.isSame = rng() < 0.5;
-  t.rootNote = choice(rng, NOTE_LIST);
-  t.test = t.isSame ? t.reference.slice() : genVariationMelody(t.reference, seed + 1);
+  const isDifferent = rng() < TAKETORI_P_DIFFERENT;
+  t.isSame = !isDifferent;
+  t.test = isDifferent ? genVariationMelody(t.reference, seed) : t.reference.slice();
 
   $("#tk-round").textContent = t.round;
   $("#tk-streak").textContent = t.streak;
   $("#tk-feedback").style.display = "none";
   $("#btn-tk-same").disabled = true;
   $("#btn-tk-diff").disabled = true;
-  $("#btn-tk-play").disabled = false;
-  $("#tk-status").textContent = "Press Play to hear the two melodies.";
+  const play = $("#btn-tk-play");
+  play.disabled = false;
+  play.textContent = "▶ Play sound";
+  $("#tk-status").textContent = "Play the sound — same as the reference, or different?";
 }
 
 function playTaketori() {
   const t = state.taketori;
   const btn = $("#btn-tk-play");
   btn.disabled = true;
-  $("#tk-status").textContent = "♪ Reference, then comparison…";
-  playMelodySequence(t.rootNote, [t.reference, t.test], () => {
-    btn.disabled = false;
-    $("#tk-status").textContent = "Same or different?";
-    if (!t.answered) {
-      $("#btn-tk-same").disabled = false;
-      $("#btn-tk-diff").disabled = false;
-    }
-  });
+  if (t.phase === "reference") {
+    $("#tk-status").textContent = "♪ Reference…";
+    playSingleMelody(t.rootNote, t.reference, () => newTaketoriRound());
+  } else {
+    $("#tk-status").textContent = "♪ …";
+    playSingleMelody(t.rootNote, t.test, () => {
+      btn.disabled = false;
+      $("#tk-status").textContent = "Same as the reference, or different?";
+      if (!t.answered) {
+        $("#btn-tk-same").disabled = false;
+        $("#btn-tk-diff").disabled = false;
+      }
+    });
+  }
 }
 
 function answerTaketori(userSaysSame) {
@@ -628,7 +656,7 @@ function taketoriGameOver() {
   t.best = best;
   $("#go-streak").textContent = t.streak;
   $("#go-best").textContent = best;
-  $("#go-reveal").textContent = `The two melodies were ${t.isSame ? "the SAME" : "DIFFERENT"}.`;
+  $("#go-reveal").textContent = `That sound was ${t.isSame ? "the SAME as" : "DIFFERENT from"} the reference.`;
   buildTaketoriReplay();
   showScreen("screen-gameover");
 }
@@ -639,7 +667,7 @@ function buildTaketoriReplay() {
   box.innerHTML = "";
   const items = [
     { label: "Reference", melody: t.reference },
-    { label: "Comparison", melody: t.test },
+    { label: "That sound", melody: t.test },
   ];
   items.forEach(({ label, melody }) => {
     const btn = document.createElement("button");

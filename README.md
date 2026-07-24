@@ -1,88 +1,88 @@
-# 🎵 Kumikyo — 組响 — 音のパターン認識トレーナー
+# 🎵 Kumikyo — 組响 — Auditory Pattern Trainer
 
-源氏香（源氏香 / 組香）に着想を得た、聴覚パターン認識のトレーニングアプリです。
-5つのメロディを聞き、**同じ組（＝同じメロディ）の並び**を聞き分けて、対応する源氏香の図を当てます。
+An auditory pattern-recognition trainer inspired by *Genji-kō* (源氏香), the incense-matching game of *Kumikō* (組香).
+Listen to short melodies and figure out which ones share the same pattern.
 
-> 🌐 **ブラウザで遊べます** — ビルド不要の静的サイトで、GitHub Pages で配信しています。
+> 🌐 **Playable in the browser** — a static site with no build step, deployed via GitHub Pages.
 
-## 🎮 遊び方
+## 🎮 How to play
 
-### モード
+### Modes
 
-- **源氏香 (Genji-kō)**: 5つのメロディを聞き、同じ組の並びを当てて源氏香の図を6択から選ぶ
-- **竹取 (Taketori)**: reference メロディと比較メロディを聞き、**Same / Different** を答え続けるサバイバル。1問でも間違えると終了。連続正解(streak)と最高記録(best)を記録
+- **Genji-kō**: Five melodies play in sequence. Work out which positions share a melody (the same "group") and pick the matching Genji-kō symbol from 6 choices.
+- **Taketori**: A reference melody plays once at the start. Then single sounds play one at a time — for each, decide whether it is **the same** as the reference or **different**. Keep going as long as you're correct; a single mistake ends the run. Different sounds appear 80% of the time. Your streak and all-time best are tracked.
 
-### 源氏香モードの流れ
+### Genji-kō flow
 
-1. **モード**（源氏香）と**難易度**を選ぶ
-2. 「セッション開始」→「▶ 5つのメロディを再生」で音を聞く
-3. 5つのメロディのうち、**同じ音**が鳴る位置の組み合わせを聞き取る
-4. その並びに対応する源氏香の図を **6択**から選んで「回答する」
-5. 答え合わせ画面で：
-   - **各位置(位置1〜5)／全体のメロディを聴き直し**（組ラベル付き）
-   - 生成された音を **WAV でダウンロード**
-6. 成績は端末内（`localStorage`）に保存され、「最近の成績を見る」で日別集計を確認できます
+1. Choose a **mode** (Genji-kō) and a **difficulty**
+2. Press **▶ Play the 5 melodies** and listen
+3. Identify which of the 5 positions play the **same melody** (same group)
+4. Pick the Genji-kō symbol whose grouping matches, then **Submit**
+5. On the result screen you can:
+   - **Replay each position (1–5) or the full sequence** (with group labels)
+   - **Download the generated audio as a WAV**
+6. Results are stored locally (`localStorage`); "View recent stats" shows a per-day summary
 
-### 難易度
+### Difficulty
 
-| 難易度 | 1メロディの音数 | 内容 |
-|--------|----------------|------|
-| やさしい | 3音 | パターンの違いが大きめ |
-| ふつう | 4音 | やや似ている |
-| むずかしい | 5音 | 非常に似ている |
-| 激ムズ | 5音 | 極めて似ている・図ではなくテキスト表示 |
+| Difficulty | Notes per melody | Notes |
+|------------|------------------|-------|
+| Easy | 3 | Patterns differ noticeably |
+| Normal | 4 | Somewhat similar |
+| Hard | 5 | Very similar |
+| Very Hard | 5 | Extremely similar; symbols shown as text |
 
-各メロディは C-D-E-F-G の長音階に限定した純正弦波で、組の違いは **1音だけ隣接ステップに変化**します。ヘッドフォン推奨。
+Melodies use a constrained C-D-E-F-G major scale of pure sine tones, and groups differ by **a single adjacent scale step**. Headphones recommended.
 
-## 🚀 デプロイ（GitHub Pages）
+## 🚀 Deployment (GitHub Pages)
 
-`main` へ push すると GitHub Actions が自動でビルド・デプロイします。
+Pushing to `main` triggers a GitHub Actions workflow that builds and deploys automatically.
 
-初回のみ、リポジトリの **Settings → Pages → Source: GitHub Actions** を選択してください。
-以降は push だけで公開URL（例: `https://<user>.github.io/<repo>/`）が更新されます。
+One-time setup: in the repo, go to **Settings → Pages → Source: GitHub Actions**.
+After that, every push updates the public URL (e.g. `https://<user>.github.io/<repo>/`).
 
-## 🖥️ ローカルで動かす
+## 🖥️ Run locally
 
-`file://` では `fetch` が動かないため、簡易サーバ経由で開きます。
+`file://` won't work because of `fetch`, so serve over a local HTTP server:
 
 ```bash
-# リポジトリ直下で
+# from the repo root
 python3 -m http.server 8000
-# → ブラウザで http://localhost:8000/
+# → open http://localhost:8000/
 ```
 
-## 🏗️ 構成（素の HTML/JS・依存なし）
+## 🏗️ Structure (plain HTML/JS, no dependencies)
 
 ```
-index.html                   # 画面（設定 → プレイ → 答え合わせ の3画面）
-web/style.css                # スタイル
-web/app.js                   # 刺激生成ロジック + Web Audio 合成 + 成績保存
-data/genji_ko.csv            # 源氏香 52 パターン (rgs / slug / heights)
-fig_genjiko/                 # 各パターンの図 (52 枚 PNG)
-.github/workflows/pages.yml  # GitHub Pages 自動デプロイ
-.nojekyll                    # Jekyll 処理を無効化
+index.html                   # UI (Setup → Play → Result, plus Taketori / Game Over)
+web/style.css                # styles
+web/app.js                   # stimulus generation + Web Audio synthesis + stats
+data/genji_ko.csv            # 52 Genji-kō patterns (rgs / slug / heights)
+fig_genjiko/                 # symbol images (52 PNGs)
+.github/workflows/pages.yml  # GitHub Pages auto-deploy
+.nojekyll                    # disable Jekyll processing
 ```
 
-### 仕組み
+### How it works
 
-- **刺激生成**: 源氏香パターンの各桁を「組」として解釈（例 `12121` → 組 `01010`）。同じ組の位置には同一メロディ、異なる組には1音違いのメロディを割り当てる
-- **音合成**: Web Audio API の `OscillatorNode`（正弦波）＋ゲイン包絡。WAV 出力は `OfflineAudioContext` でレンダリング
-- **再現性**: seed 付き PRNG（mulberry32）で、同じ seed からは同じ問題・同じ音を再生成
-- **成績**: `localStorage` に保存（サーバ不要）
+- **Stimulus generation**: Each digit of a Genji-kō pattern is read as a "group" (e.g. `12121` → groups `01010`). Positions in the same group get an identical melody; other groups get a one-note variation.
+- **Audio synthesis**: Web Audio API `OscillatorNode` (sine) with a gain envelope. WAV export is rendered via `OfflineAudioContext`.
+- **Reproducibility**: A seeded PRNG (mulberry32) regenerates the same puzzle and audio from the same seed.
+- **Stats**: Stored in `localStorage` (no server required).
 
-## 🗺️ ロードマップ
+## 🗺️ Roadmap
 
-- [x] **フェーズ1**: ブラウザ版の基盤（源氏香モード）＋答え合わせ音声の再生 ＋ GitHub Pages 配信
-- [x] **フェーズ2**: `taketori` モード — reference と比較メロディの Same/Different を答え続け、間違えたら終了（連続正解記録）
-- [ ] **フェーズ3**: 音声素材の拡張 — [klattsch](https://github.com/tgies/klattsch)（ブラウザで動く Klatt 音声合成、MIT）で話し方・スピード・抑揚を素材化
+- [x] **Phase 1**: Browser edition (Genji-kō mode) + answer-review audio replay + GitHub Pages deploy
+- [x] **Phase 2**: `taketori` mode — judge each sound as same/different vs the reference; one mistake ends the run (streak tracking)
+- [ ] **Phase 3**: Richer sound material — [klattsch](https://github.com/tgies/klattsch) (browser-based Klatt speech synthesis, MIT) to use articulation, speed, and intonation as stimuli
 
-## 🖥️ デスクトップ版 (v0) について
+## 🖥️ About the desktop version (v0)
 
-初期版は PyQt6 の**デスクトップアプリ**（`script/kumikyo.py`、成績は SQLite）でした。
-現在は上記の Web 版を主軸に開発しており、v0 は `v0_260724` ブランチに保存されています。
+The original version was a **PyQt6 desktop app** (`script/kumikyo.py`, stats in SQLite).
+Development now centers on the web edition above; v0 is preserved on the `v0_260724` branch.
 
 <details>
-<summary>v0 (PyQt6 デスクトップ版) の起動方法</summary>
+<summary>Running v0 (PyQt6 desktop)</summary>
 
 ```bash
 python -m venv venv
@@ -91,7 +91,7 @@ pip install -r requirements.txt
 python script/kumikyo.py
 ```
 
-依存: PyQt6 / numpy / simpleaudio / pillow。成績は `~/Library/Application Support/Kumikyo/data.db`（macOS）等に保存されます。
+Dependencies: PyQt6 / numpy / simpleaudio / pillow. Stats are saved to `~/Library/Application Support/Kumikyo/data.db` (macOS), etc.
 
 </details>
 
@@ -101,7 +101,7 @@ haruka.ij [at] gmail.com
 
 ## 🙏 Acknowledgments
 
-- 源氏香（源氏物語 各帖の香パターン）
+- Genji-kō (incense patterns of the chapters of *The Tale of Genji*)
 - [klattsch](https://github.com/tgies/klattsch) — Tony Gies (MIT)
 - Web Audio API
 
@@ -109,6 +109,6 @@ haruka.ij [at] gmail.com
 
 <div align="center">
 
-**🎵 耳を鍛えて、心を広げよう 🧠**
+**🎵 Train your ear, expand your mind 🧠**
 
 </div>
