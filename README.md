@@ -3,7 +3,7 @@
 An auditory pattern-recognition trainer inspired by *Genji-kō* (源氏香), the incense-matching game of *Kumikō* (組香).
 Listen to short melodies and figure out which ones share the same pattern.
 
-> 🌐 **Playable in the browser** — a static site with no build step, deployed via GitHub Pages.
+> 🌐 **Playable in the browser** — a static site with no build step, deployed via [GitHub Pages](https://iharuto.github.io/kumikyo/).
 
 ## 🎮 How to play
 
