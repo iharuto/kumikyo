@@ -78,7 +78,9 @@ haruka.ij [at] gmail.com
 
 ## 🙏 Acknowledgments
 
-- Genji-kō (incense patterns of the chapters of *The Tale of Genji*)
+- **Genji-kō** and **Taketori-kō** — incense-comparison games of *Kumikō* (組香) that inspired the modes
+- Genji-kō symbols from the chapters of *The Tale of Genji*
+- Melodies in Music mode composed by **Susumu Hirasawa** (user-transcribed as klattsch arrangements for auditory training; see `data/music.json` for per-track references)
 - [klattsch](https://github.com/tgies/klattsch) — Tony Gies (MIT)
 - Web Audio API
 

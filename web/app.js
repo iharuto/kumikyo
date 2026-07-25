@@ -386,13 +386,14 @@ function aggregateStats(days = 14) {
  * UI state & control
  * ========================================================== */
 const state = {
-  sound: "tones", // 'tones' | 'voice'
-  mode: "genjiko",
+  sound: "tones", // 'tones' | 'voice' | 'music'
+  mode: "genjiko", // 'genjiko' | 'taketoriko' | 'survival'
   difficulty: "normal",
   stim: null,
   selectedIndex: null,
   startTs: null,
-  taketori: null,
+  taketori: null, // survival state
+  match: null,    // taketori-kō state
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -410,8 +411,9 @@ const SOUND_HINTS = {
   music: "A sung Klatt melody. Detect when some sung vowels have been swapped (pitch & rhythm stay fixed).",
 };
 const MODE_HINTS = {
-  genjiko: "Hear 5 melodies; identify which positions share a melody and match the Genji-kō symbol.",
-  taketori: "Memorize the reference, then judge each following sound: same as the reference, or different. One mistake ends the run.",
+  genjiko: "Hear 5 sounds; identify which positions share a pattern and match the Genji-kō symbol.",
+  taketoriko: "Hear one reference, then pick the one of 5 candidates that matches it.",
+  survival: "Memorize the reference, then judge each following sound: same or different. One mistake ends the run.",
 };
 const PROSODY_HINTS = {
   easy: "large prosody difference",
@@ -478,8 +480,9 @@ function initHome() {
 // ---- Start (dispatch by sound + mode) ----
 function startSession() {
   ac(); // wake AudioContext on user gesture
-  if (state.mode === "taketori") { startTaketori(state.sound); return; } // 'tones' | 'voice' | 'music'
-  startGenjiko(); // genjiko for tones/voice (branches on state.sound inside)
+  if (state.mode === "taketoriko") { startTaketoriKo(state.sound); return; }
+  if (state.mode === "survival") { startTaketori(state.sound); return; } // 'tones' | 'voice' | 'music'
+  startGenjiko(); // genji-kō (branches on state.sound inside)
 }
 
 /* ---------- Genji-kō mode ---------- */
@@ -998,6 +1001,126 @@ function initTaketori() {
   $("#btn-go-home").addEventListener("click", () => showScreen("screen-home"));
 }
 
+/* ---------- Taketori-kō mode (match-to-reference) ----------
+ * One reference plays; 5 candidates are shown (one identical to the reference,
+ * 4 variations). Pick the matching candidate. Works for tones / voice / music.
+ */
+function buildMatchStimulus(kind, difficulty, seed) {
+  const rng = mulberry32(seed);
+  const st = { kind, selectedIndex: null, submitted: false };
+  let distractors, matchItem;
+
+  if (kind === "music") {
+    if (!MUSIC.length) return null;
+    st.tune = choice(rng, MUSIC);
+    st.reference = st.tune.klatt;
+    const band = MUSIC_BANDS[difficulty] || MUSIC_BANDS.normal;
+    distractors = Array.from({ length: 4 }, () => swapVowels(st.reference, band.count, band.near, (Math.floor(rng() * 1e9)) >>> 0).klatt);
+    matchItem = st.reference;
+  } else if (kind === "voice") {
+    if (!VOICE_CARRIERS.length) return null;
+    st.carrier = choice(rng, VOICE_CARRIERS);
+    st.baseOpts = { ...VOICE_BASE_OPTS };
+    st.reference = { ...VOICE_BASE_OPTS };
+    distractors = Array.from({ length: 4 }, () => {
+      const v = makeProsodyVariant(rng, difficulty);
+      return { ...st.baseOpts, ...v.opts };
+    });
+    matchItem = { ...st.baseOpts };
+  } else {
+    const nNotes = DIFFICULTY_LEVELS[difficulty].n_positions;
+    st.rootNote = choice(rng, NOTE_LIST);
+    st.reference = genBaseMelody((Math.floor(rng() * 1e9)) >>> 0, nNotes);
+    distractors = Array.from({ length: 4 }, () => genVariationMelody(st.reference, (Math.floor(rng() * 1e9)) >>> 0));
+    matchItem = st.reference.slice();
+  }
+
+  const all = distractors.concat([matchItem]); // match is at index 4
+  const order = shuffle(rng, [0, 1, 2, 3, 4]);
+  st.candidates = order.map((i) => all[i]);
+  st.correctIndex = order.indexOf(4);
+  return st;
+}
+
+function playMatchItem(item, onDone) {
+  const s = state.match;
+  if (s.kind === "music") playVoice(item, {}, onDone);
+  else if (s.kind === "voice") playVoice(s.carrier.arpa, item, onDone);
+  else playSingleMelody(s.rootNote, item, onDone);
+}
+
+function buildCandidates() {
+  const box = $("#tko-candidates");
+  box.innerHTML = "";
+  state.match.candidates.forEach((item, i) => {
+    const btn = document.createElement("button");
+    btn.className = "cand";
+    btn.textContent = `▶ Candidate ${i + 1}`;
+    btn.addEventListener("click", () => {
+      if (!state.match.submitted) {
+        $$("#tko-candidates .cand").forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        state.match.selectedIndex = i;
+        $("#btn-tko-submit").disabled = false;
+      }
+      $$("#tko-candidates .cand").forEach((b) => b.classList.remove("playing"));
+      btn.classList.add("playing");
+      playMatchItem(item, () => btn.classList.remove("playing"));
+    });
+    box.appendChild(btn);
+  });
+}
+
+function startTaketoriKo(kind) {
+  const s = buildMatchStimulus(kind, state.difficulty, randomSeed());
+  if (!s) { alert(`${kind} data failed to load.`); showScreen("screen-home"); return; }
+  state.match = s;
+
+  $("#tko-credit").innerHTML = kind === "music" ? musicCreditHtml(s.tune) : "";
+  const refLabel =
+    kind === "music" ? `Reference melody: “${s.tune.title}”. `
+    : kind === "voice" ? `Reference phrase: “${s.carrier.text}”. `
+    : "";
+  $("#tko-status").textContent = refLabel + "Play the reference, then pick the matching candidate.";
+  buildCandidates();
+  $("#btn-tko-ref").disabled = false;
+  $("#btn-tko-submit").disabled = true;
+  $("#tko-feedback").style.display = "none";
+  $("#tko-after").style.display = "none";
+  showScreen("screen-taketoriko");
+}
+
+function submitMatch() {
+  const s = state.match;
+  if (s.selectedIndex === null || s.submitted) return;
+  s.submitted = true;
+  const correct = s.selectedIndex === s.correctIndex;
+  const modeName = { music: "music_taketoriko", voice: "voice_taketoriko", tones: "taketoriko" }[s.kind];
+  recordTrial({ ts: Date.now(), mode: modeName, difficulty: state.difficulty, correct });
+
+  const cands = $$("#tko-candidates .cand");
+  cands[s.correctIndex]?.classList.add("correct");
+  if (!correct) cands[s.selectedIndex]?.classList.add("wrong");
+  const fb = $("#tko-feedback");
+  fb.className = "banner " + (correct ? "ok" : "ng");
+  fb.textContent = correct ? "✅ Correct!" : "❌ Incorrect — the highlighted candidate matched the reference.";
+  fb.style.display = "";
+  $("#btn-tko-submit").disabled = true;
+  $("#tko-after").style.display = "flex";
+}
+
+function initTaketoriKo() {
+  $("#btn-tko-ref").addEventListener("click", () => {
+    const b = $("#btn-tko-ref");
+    b.disabled = true;
+    playMatchItem(state.match.reference, () => (b.disabled = false));
+  });
+  $("#btn-tko-submit").addEventListener("click", submitMatch);
+  $("#btn-tko-quit").addEventListener("click", () => showScreen("screen-home"));
+  $("#btn-tko-next").addEventListener("click", () => startTaketoriKo(state.sound));
+  $("#btn-tko-home").addEventListener("click", () => showScreen("screen-home"));
+}
+
 // ---- Stats dialog ----
 function showStats() {
   const rows = aggregateStats(14);
@@ -1044,6 +1167,7 @@ async function main() {
   initPlay();
   initResult();
   initTaketori();
+  initTaketoriKo();
   initStatsDialog();
 }
 
