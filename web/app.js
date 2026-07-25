@@ -8,7 +8,7 @@
  * No build step; plain HTML/JS, deployable on GitHub Pages.
  * ========================================================== */
 
-import { playVoice, stopVoice, voiceWavBlob, sequenceWavBlob } from "./voice.js";
+import { playVoice, stopVoice, voiceWavBlob, sequenceWavBlob, sequenceWavBlobStrings } from "./voice.js";
 
 // ---- Domain constants (same as v0) ----
 const NOTE_FREQS = {
@@ -81,10 +81,22 @@ let MUSIC = []; // [{ id, title, klatt }]
 async function loadMusic() {
   try {
     const d = await (await fetch("data/music.json")).json();
-    MUSIC = (d.melodies || []).map((m) => ({ id: m.id, title: m.title, klatt: m.lines.join("\n") }));
+    MUSIC = (d.melodies || []).map((m) => ({
+      id: m.id, title: m.title, composer: m.composer || "", reference: m.reference || "", klatt: m.lines.join("\n"),
+    }));
   } catch (e) {
     console.error("Failed to load music melodies:", e);
   }
+}
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Credit line (title, composer, clickable reference link) for a music melody.
+function musicCreditHtml(tune) {
+  if (!tune) return "";
+  let s = `♪ “${escapeHtml(tune.title)}”`;
+  if (tune.composer) s += ` — ${escapeHtml(tune.composer)}`;
+  if (tune.reference) s += ` · <a href="${escapeHtml(tune.reference)}" target="_blank" rel="noopener">reference</a>`;
+  return s;
 }
 
 // ---- Seeded PRNG (mulberry32) ----
@@ -430,17 +442,6 @@ function selectChip(groupSel, value, attr) {
   $$(groupSel + " .chip").forEach((b) => b.classList.toggle("active", b.dataset[attr] === value));
 }
 
-// Music mode is taketori-only (a sung ~8s melody isn't suited to 5-way grouping).
-function applySoundConstraints() {
-  const genjikoChip = document.querySelector('#mode-buttons .chip[data-mode="genjiko"]');
-  if (state.sound === "music") {
-    genjikoChip.disabled = true;
-    if (state.mode !== "taketori") { state.mode = "taketori"; selectChip("#mode-buttons", "taketori", "mode"); }
-  } else {
-    genjikoChip.disabled = false;
-  }
-}
-
 // ---- Home ----
 function initHome() {
   $$("#sound-buttons .chip").forEach((btn) => {
@@ -448,7 +449,6 @@ function initHome() {
       if (btn.disabled) return;
       selectChip("#sound-buttons", btn.dataset.sound, "sound");
       state.sound = btn.dataset.sound;
-      applySoundConstraints();
       updateSoundHint(); updateModeHint(); updateDifficultyHint();
     });
   });
@@ -515,14 +515,31 @@ function buildVoiceStimulus(difficulty, seed) {
   return stim;
 }
 
-// Play a list of voice utterances (same carrier) back-to-back with gaps.
-function playVoiceList(arpa, optsList, gapMs, onDone) {
+// Music Genji-kō: play one JA melody 5 times; each group is a distinct
+// vowel-swap variant (group 0 = original). Same group = identical rendition.
+function buildMusicStimulus(difficulty, seed) {
+  const stim = buildStimulus(difficulty, seed);
+  const rng = mulberry32((seed ^ 0x27d4eb2f) >>> 0);
+  stim.isMusic = true;
+  stim.tune = choice(rng, MUSIC);
+  const band = MUSIC_BANDS[difficulty] || MUSIC_BANDS.normal;
+  const uniqueGroups = [...new Set(stim.positionGroups)];
+  const groupToKlatt = {};
+  uniqueGroups.forEach((g, i) => {
+    groupToKlatt[g] = i === 0 ? stim.tune.klatt : swapVowels(stim.tune.klatt, band.count, band.near, seed + g * 101 + i).klatt;
+  });
+  stim.positionKlatt = stim.positionGroups.map((g) => groupToKlatt[g]);
+  return stim;
+}
+
+// Play a list of items (opts for voice, full strings for music) back-to-back.
+function playSeq(playItem, count, gapMs, onDone) {
   stopAllAudio();
   let i = 0;
   const step = () => {
-    if (i >= optsList.length) { if (onDone) onDone(); return; }
-    const opts = optsList[i++];
-    playVoice(arpa, opts, () => trackTimer(step, i < optsList.length ? gapMs : 0));
+    if (i >= count) { if (onDone) onDone(); return; }
+    const idx = i++;
+    playItem(idx, () => trackTimer(step, i < count ? gapMs : 0));
   };
   step();
 }
@@ -530,20 +547,23 @@ function playVoiceList(arpa, optsList, gapMs, onDone) {
 // Genji-kō playback that branches on sound source.
 function playGenjikoSequence(onDone) {
   const stim = state.stim;
-  if (stim.isVoice) playVoiceList(stim.carrier.arpa, stim.positionOpts, MELODY_GAP * 1000, onDone);
+  if (stim.isMusic) playSeq((i, cb) => playVoice(stim.positionKlatt[i], {}, cb), stim.positionKlatt.length, MELODY_GAP * 1000, onDone);
+  else if (stim.isVoice) playSeq((i, cb) => playVoice(stim.carrier.arpa, stim.positionOpts[i], cb), stim.positionOpts.length, MELODY_GAP * 1000, onDone);
   else playMelodySequence(stim.rootNote, stim.positionMelodies, onDone);
 }
 function playGenjikoPosition(i, onDone) {
   const stim = state.stim;
-  if (stim.isVoice) playVoice(stim.carrier.arpa, stim.positionOpts[i], onDone);
+  if (stim.isMusic) playVoice(stim.positionKlatt[i], {}, onDone);
+  else if (stim.isVoice) playVoice(stim.carrier.arpa, stim.positionOpts[i], onDone);
   else playSingleMelody(stim.rootNote, stim.positionMelodies[i], onDone);
 }
 
 function startGenjiko() {
+  const seed = randomSeed();
   state.stim =
-    state.sound === "voice"
-      ? buildVoiceStimulus(state.difficulty, randomSeed())
-      : buildStimulus(state.difficulty, randomSeed());
+    state.sound === "music" ? buildMusicStimulus(state.difficulty, seed)
+    : state.sound === "voice" ? buildVoiceStimulus(state.difficulty, seed)
+    : buildStimulus(state.difficulty, seed);
   state.selectedIndex = null;
   state.startTs = null;
 
@@ -551,14 +571,21 @@ function startGenjiko() {
   $("#btn-submit").disabled = true;
   const play = $("#btn-play-seq");
   play.disabled = false;
-  const isV = state.stim.isVoice;
-  play.textContent = isV ? "▶ Play the 5 utterances" : "▶ Play the 5 melodies";
-  $("#play-instruction").textContent = isV
-    ? "The same phrase is spoken 5 times. Find which positions share the same speaking style (same group), then pick the matching Genji-kō symbol."
-    : "Listen for which positions share the same melody (same group), then pick the matching Genji-kō symbol.";
-  $("#play-status").textContent = isV
-    ? `Phrase: “${state.stim.carrier.text}”. Press Play to hear it.`
-    : "Press Play to hear the melodies.";
+  const stim = state.stim;
+  $("#play-credit").innerHTML = stim.isMusic ? musicCreditHtml(stim.tune) : "";
+  if (stim.isMusic) {
+    play.textContent = "▶ Play the melody 5×";
+    $("#play-instruction").textContent = "One melody plays 5 times; some renditions swap sung vowels. Find which positions share the same rendition (same group), then pick the matching Genji-kō symbol.";
+    $("#play-status").textContent = "Press Play.";
+  } else if (stim.isVoice) {
+    play.textContent = "▶ Play the 5 utterances";
+    $("#play-instruction").textContent = "The same phrase is spoken 5 times. Find which positions share the same speaking style (same group), then pick the matching Genji-kō symbol.";
+    $("#play-status").textContent = `Phrase: “${stim.carrier.text}”. Press Play to hear it.`;
+  } else {
+    play.textContent = "▶ Play the 5 melodies";
+    $("#play-instruction").textContent = "Listen for which positions share the same melody (same group), then pick the matching Genji-kō symbol.";
+    $("#play-status").textContent = "Press Play to hear the melodies.";
+  }
   showScreen("screen-play");
 }
 
@@ -613,7 +640,8 @@ function submitAnswer() {
   const rtMs = state.startTs ? Math.round(performance.now() - state.startTs) : 0;
 
   recordTrial({
-    ts: Date.now(), mode: stim.isVoice ? "voice_genjiko" : "genjiko", difficulty: stim.difficulty, seed: stim.seed,
+    ts: Date.now(), mode: stim.isMusic ? "music_genjiko" : stim.isVoice ? "voice_genjiko" : "genjiko",
+    difficulty: stim.difficulty, seed: stim.seed,
     target: stim.target, choice: stim.allPatterns[state.selectedIndex], correct, rt_ms: rtMs,
   });
 
@@ -680,7 +708,9 @@ function initResult() {
     btn.disabled = true;
     btn.textContent = "Rendering…";
     try {
-      const blob = stim.isVoice
+      const blob = stim.isMusic
+        ? sequenceWavBlobStrings(stim.positionKlatt, MELODY_GAP * 1000)
+        : stim.isVoice
         ? sequenceWavBlob(stim.carrier.arpa, stim.positionOpts, MELODY_GAP * 1000)
         : await renderSequenceWav(stim.rootNote, stim.positionMelodies);
       const url = URL.createObjectURL(blob);
@@ -813,6 +843,7 @@ function startTaketori(kind) {
   const play = $("#btn-tk-play");
   play.disabled = false;
   play.textContent = "▶ Play reference";
+  $("#tk-credit").innerHTML = kind === "music" ? musicCreditHtml(t.tune) : "";
   $("#tk-status").textContent =
     kind === "music"
       ? "Listen to the reference melody and memorize its sung vowels."

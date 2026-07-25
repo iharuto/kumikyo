@@ -1,13 +1,15 @@
 {
   "meta": {
-    "note": "User-provided klattsch melody arrangements. Difficulty in Music mode swaps some sung vowels; pitch/rhythm stay fixed, so the task is pure vowel discrimination.",
+    "note": "User-transcribed klattsch arrangements (pitch + sung vowels only, no lyrics) of melodies composed by Susumu Hirasawa, used here for auditory training. These are not the original recordings. Difficulty in Music mode swaps some sung vowels; pitch/rhythm stay fixed, so the task is pure vowel discrimination.",
     "synth": "klattsch"
   },
   "melodies": [
     {
       "id": "study1",
-      "title": "Study melody 1",
-      "source": "User-provided klattsch arrangement, referencing a MIDI (https://www.youtube.com/watch?v=TJ6-FmjI784).",
+      "title": "Cruise / Psyclone",
+      "composer": "Susumu Hirasawa",
+      "reference": "https://www.youtube.com/watch?v=TJ6-FmjI784",
+      "note": "User-transcribed klattsch arrangement (melody line, sung vowels).",
       "lines": [
         "s1.35 v3 r120",
         "r500 bF#4 IY",
@@ -46,7 +48,9 @@
     {
       "id": "study2",
       "title": "Lotus",
-      "source": "User-provided klattsch arrangement, referencing a score (https://ja.musescore.com/user/79422589/scores/17635948).",
+      "composer": "Susumu Hirasawa",
+      "reference": "https://ja.musescore.com/user/79422589/scores/17635948",
+      "note": "User-transcribed klattsch arrangement (melody line, sung vowels).",
       "lines": [
         "s1.35 v3",
         "",
@@ -76,7 +80,9 @@
     {
       "id": "study3",
       "title": "Girl in Byakko",
-      "source": "User-provided klattsch arrangement, referencing a score (https://musescore.com/user/37321798/scores/6579690).",
+      "composer": "Susumu Hirasawa",
+      "reference": "https://musescore.com/user/37321798/scores/6579690",
+      "note": "User-transcribed klattsch arrangement (melody line, sung vowels).",
       "lines": [
         "s1.35 v3 r120",
         "r250 bF4 ( Y EY )",

@@ -150,15 +150,23 @@ export function voiceWavBlob(arpa, opts = {}) {
   return new Blob([bytes], { type: "audio/wav" });
 }
 
-/** Render a list of utterances (same carrier, different prosody) into one WAV
- *  Blob with silent gaps between them. Used by voice Genji-kō mode. */
-export function sequenceWavBlob(arpa, optsList, gapMs = 1500) {
-  const parts = optsList.map((o) => renderFloat(arpa, o).buf);
+// Concatenate rendered buffers into one WAV Blob with silent gaps.
+function concatWavBlob(parts, gapMs, comment) {
   const gap = Math.round((SR * gapMs) / 1000);
   const total = parts.reduce((s, b) => s + b.length, 0) + gap * Math.max(0, parts.length - 1);
   const out = new Float32Array(total);
   let off = 0;
   parts.forEach((b, i) => { out.set(b, off); off += b.length + (i < parts.length - 1 ? gap : 0); });
-  const { bytes } = encodeWav(out, SR, { metadata: { software: "Kumikyo", comment: `genjiko-voice x${parts.length}` } });
+  const { bytes } = encodeWav(out, SR, { metadata: { software: "Kumikyo", comment } });
   return new Blob([bytes], { type: "audio/wav" });
+}
+
+/** One WAV from a list of prosody variants of the same carrier (voice Genji-kō). */
+export function sequenceWavBlob(arpa, optsList, gapMs = 1500) {
+  return concatWavBlob(optsList.map((o) => renderFloat(arpa, o).buf), gapMs, `genjiko-voice x${optsList.length}`);
+}
+
+/** One WAV from a list of full klattsch strings (music Genji-kō). */
+export function sequenceWavBlobStrings(strList, gapMs = 1500) {
+  return concatWavBlob(strList.map((s) => renderFloat(s, {}).buf), gapMs, `genjiko-music x${strList.length}`);
 }
