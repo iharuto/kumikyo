@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "note": "User-provided klattsch melody arrangements. Difficulty in Music mode swaps some sung vowels; pitch/rhythm stay fixed, so the task is pure vowel discrimination.",
+    "synth": "klattsch"
+  },
+  "melodies": [
+    {
+      "id": "study1",
+      "title": "Study melody 1",
+      "source": "User-provided klattsch arrangement, referencing a MIDI (https://www.youtube.com/watch?v=TJ6-FmjI784).",
+      "lines": [
+        "s1.35 v3 r120",
+        "r500 bF#4 IY",
+        "r380 bG#4 EY",
+        "r120 bF#5 AO",
+        "r750 bD#5 IH",
+        "r250 bF#5 IH",
+        "",
+        "r120 bA#5 ( Y EY )",
+        "r250 bG#5 EH",
+        "r120 bC#6 IY",
+        "r250 bA#5 EY",
+        "r250 bG#5 AO",
+        "r380 bA#5 AA",
+        "",
+        "r60 bG#5 ( Y EH )",
+        "r60 bF#5 EY",
+        "r500 bD#5 AO",
+        "r250 bD#5 OW",
+        "r250 bC#5 UH",
+        "r380 bF#5 AA",
+        "",
+        "r60 bD#5 ( Y AO )",
+        "r60 bC#5 EH",
+        "r500 bA#4 OW",
+        "r500 bG#4 UH",
+        "r380 bA#4 AA",
+        "",
+        "r120 bC#5 ( Y EY )",
+        "r380 bC#5 EH",
+        "r120 bC#5 IY",
+        "r500 bD#5 AO",
+        "r500 bF#5 EY"
+      ]
+    },
+    {
+      "id": "study2",
+      "title": "Lotus",
+      "source": "User-provided klattsch arrangement, referencing a score (https://ja.musescore.com/user/79422589/scores/17635948).",
+      "lines": [
+        "s1.35 v3",
+        "",
+        "r500 bE5 AA",
+        "r500 bG5 EH",
+        "r500 bD5 AO",
+        "r500 bG5 AA",
+        "",
+        "r250 bD5 ( Y EH )",
+        "r125 bE5 IY",
+        "r125 bD5 EH",
+        "r250 bC5 EY",
+        "r250 bD5 AO",
+        "r900 bE5 AA",
+        "",
+        "r250 bB4 AW",
+        "r750 bA4 AO",
+        "r250 bB4 ( Y EH )",
+        "r750 bG4 EY",
+        "r250 bB4 OW",
+        "",
+        "r500 bA4 ( Y EY )",
+        "r500 bC5 AO",
+        "r500 bF5 EH"
+      ]
+    },
+    {
+      "id": "study3",
+      "title": "Girl in Byakko",
+      "source": "User-provided klattsch arrangement, referencing a score (https://musescore.com/user/37321798/scores/6579690).",
+      "lines": [
+        "s1.35 v3 r120",
+        "r250 bF4 ( Y EY )",
+        "r125 bC5 IY",
+        "r125 bC5 EY",
+        "r250 bC4 AO",
+        "r250 bA4 AA",
+        "r250 bC4 OW",
+        "r250 bG4 EH",
+        "r250 bE4 IY",
+        "r125 bC4 AO",
+        "r125 bG4 OW",
+        "",
+        "r500 bF4 EH",
+        "r125 bA4 EY",
+        "r125 bG4 EH",
+        "r125 bF4 AH",
+        "r125 bG4 AO",
+        "r500 bF4 OW",
+        "r500 bC5 UH"
+      ]
+    }
+  ]
+}
