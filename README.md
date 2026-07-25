@@ -70,32 +70,9 @@ fig_genjiko/                 # symbol images (52 PNGs)
 - **Reproducibility**: A seeded PRNG (mulberry32) regenerates the same puzzle and audio from the same seed.
 - **Stats**: Stored in `localStorage` (no server required).
 
-## 🗺️ Roadmap
 
-- [x] **Phase 1**: Browser edition (Genji-kō mode) + answer-review audio replay + GitHub Pages deploy
-- [x] **Phase 2**: `taketori` mode — judge each sound as same/different vs the reference; one mistake ends the run (streak tracking)
-- [ ] **Phase 3**: Richer sound material — [klattsch](https://github.com/tgies/klattsch) (browser-based Klatt speech synthesis, MIT) to use articulation, speed, and intonation as stimuli
 
-## 🖥️ About the desktop version (v0)
-
-The original version was a **PyQt6 desktop app** (`script/kumikyo.py`, stats in SQLite).
-Development now centers on the web edition above; v0 is preserved on the `v0_260724` branch.
-
-<details>
-<summary>Running v0 (PyQt6 desktop)</summary>
-
-```bash
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python script/kumikyo.py
-```
-
-Dependencies: PyQt6 / numpy / simpleaudio / pillow. Stats are saved to `~/Library/Application Support/Kumikyo/data.db` (macOS), etc.
-
-</details>
-
-## 📄 License / Contact
+## 📄 Contact
 
 haruka.ij [at] gmail.com
 
